@@ -7,7 +7,6 @@ import type {
   Expense,
   JournalLine,
   LedgerEntry,
-  PaymentMethod,
   PayrollRun,
   Product,
   PurchaseOrder,
@@ -17,9 +16,8 @@ import type {
   SupplierReturn,
   Voucher,
 } from "../types/index.ts";
-import { parseRecordTime, type DateRange } from "./date-range.ts";
+import { isInDateRange, parseRecordTime, type DateRange } from "./date-range.ts";
 import { customerOpeningSigned } from "./customer-balance.ts";
-import { computeLayerValuation } from "./inventory-engine.ts";
 
 /** Precision rounding for financial currency calculations */
 export function roundMoney(amount: number): number {
@@ -55,7 +53,7 @@ export function allocatePaymentAcrossInvoices(
   paymentAmount: number,
   invoices: Array<Pick<SalesOrder, "id" | "orderNo" | "date" | "total" | "paid" | "status">>,
 ): { allocations: InvoicePaymentAllocation[]; unallocated: number } {
-  let remainingPayment = roundMoney(paymentAmount);
+  let remainingPayment = Math.max(0, roundMoney(paymentAmount));
   const allocations: InvoicePaymentAllocation[] = [];
 
   const eligibleInvoices = invoices
@@ -132,6 +130,19 @@ export function computeCustomerReceivables(
       due: opening,
       orders: [],
     });
+  }
+  for (const v of vouchers) {
+    if (v.partyType === "customer" && v.partyId && !customerMap.has(v.partyId)) {
+      customerMap.set(v.partyId, {
+        id: v.partyId,
+        customerName: v.partyName || v.partyId,
+        openingBalance: 0,
+        invoiced: 0,
+        collected: 0,
+        due: 0,
+        orders: [],
+      });
+    }
   }
 
   // Add posted sales
@@ -245,6 +256,32 @@ export function computeSupplierPayables(
       orders: [],
     });
   }
+  for (const v of vouchers) {
+    if (v.partyType === "supplier" && v.partyId && !supplierMap.has(v.partyId)) {
+      supplierMap.set(v.partyId, {
+        id: v.partyId,
+        supplierName: v.partyName || v.partyId,
+        openingBalance: 0,
+        billed: 0,
+        paid: 0,
+        due: 0,
+        orders: [],
+      });
+    }
+  }
+  for (const r of supplierReturns) {
+    if (r.status !== "cancelled" && !supplierMap.has(r.supplierId)) {
+      supplierMap.set(r.supplierId, {
+        id: r.supplierId,
+        supplierName: r.supplierName,
+        openingBalance: 0,
+        billed: 0,
+        paid: 0,
+        due: 0,
+        orders: [],
+      });
+    }
+  }
 
   for (const p of purchases) {
     if (!isPostedPurchaseStatus(p.status)) continue;
@@ -328,8 +365,8 @@ export function computeOutputVatLiability(sales: SalesOrder[]): {
   for (const s of sales) {
     if (!isPostedSalesStatus(s.status)) continue;
     const tax = roundMoney(s.tax || 0);
-    const subtotal = roundMoney(s.subtotal || s.total - tax || 0);
-    const total = roundMoney(s.total || subtotal + tax);
+    const subtotal = roundMoney(s.subtotal ?? s.total - tax);
+    const total = roundMoney(s.total ?? subtotal + tax);
 
     totalOutputTax = roundMoney(totalOutputTax + tax);
     netSales = roundMoney(netSales + subtotal);
@@ -346,7 +383,20 @@ export type PnLStatement = {
   expenseList: Array<{ name: string; amount: number }>;
   totalExpenses: number;
   netProfit: number;
+  warnings: string[];
 };
+
+/** Optional payroll snapshots let reports work without loading the HR module. */
+export type AccountingVoucher = Voucher & {
+  payrollNet?: number;
+  advanceRecovered?: number;
+  assetId?: string;
+};
+export type AccountingJournalLine = JournalLine & { assetId?: string };
+
+export function journalAssetId(notes?: string): string | undefined {
+  return notes?.match(/\[asset:([^\]\s]+)\]/)?.[1];
+}
 
 /** Profit and Loss Statement calculated strictly from revenue, cost layer COGS, and operating expenses */
 export function computeProfitAndLoss(opts: {
@@ -356,19 +406,25 @@ export function computeProfitAndLoss(opts: {
   payroll?: PayrollRun[];
   vouchers?: Voucher[];
   range?: DateRange;
+  chartOfAccounts?: ChartOfAccount[];
 }): PnLStatement {
   const { sales, stockMovements, expenses, payroll = [], vouchers = [], range } = opts;
 
-  const fromTs = range?.preset !== "all" && range?.from ? parseRecordTime(range.from) : null;
-  const toTs =
-    range?.preset !== "all" && range?.to ? parseRecordTime(`${range.to}T23:59:59`) : null;
-
-  const isInRange = (dateStr: string) => {
-    const t = parseRecordTime(dateStr);
-    if (t == null) return true;
-    if (fromTs != null && t < fromTs) return false;
-    if (toTs != null && t > toTs) return false;
-    return true;
+  const isInRange = (date: string) => !range || isInDateRange(date, range);
+  const coa = new Map((opts.chartOfAccounts ?? []).map((a) => [a.id, a]));
+  const warnings: string[] = [];
+  if (coa.size === 0 && vouchers.some((v) => v.type === "journal"))
+    warnings.push(
+      "Chart of accounts not supplied; legacy journal-name classification may be incomplete",
+    );
+  const expenseLine = (line: JournalLine) => {
+    const account = coa.get(line.accountId);
+    return account
+      ? account.type === "Expense"
+      : !/payable|liability|advance|asset|capital/i.test(line.accountName) &&
+          /expense|salar(?:y|ies)|rent|utilit(?:y|ies)|fuel|wages|depreciation/i.test(
+            line.accountName,
+          );
   };
 
   // 1. Revenue (Net Sales excluding tax)
@@ -376,29 +432,90 @@ export function computeProfitAndLoss(opts: {
   for (const s of sales) {
     if (!isPostedSalesStatus(s.status)) continue;
     if (!isInRange(s.date)) continue;
-    const net = roundMoney(s.subtotal || s.total - (s.tax || 0));
+    const net = roundMoney(s.subtotal ?? s.total - (s.tax || 0));
     revenue = roundMoney(revenue + net);
   }
 
   // 2. COGS from inventory stock movements (movementType: SALE_ISSUE or cogsAmount)
   let cogs = 0;
+  const inventoryExpenses = new Map<string, number>();
+  const adjustmentKeys = new Set<string>();
+  const seenMovements = new Set<string>();
   for (const sm of stockMovements) {
-    if (
-      sm.type !== "out" &&
-      sm.movementType !== "SALE_ISSUE" &&
-      sm.movementType !== "DAMAGE" &&
-      sm.movementType !== "LOSS"
-    )
-      continue;
+    const identity = sm.movementId || sm.id;
+    if (identity && seenMovements.has(identity)) continue;
+    if (identity) seenMovements.add(identity);
     if (!isInRange(sm.date)) continue;
-    const cost = roundMoney(sm.cogsAmount || sm.totalCost || (sm.unitCost || 0) * sm.quantity);
-    cogs = roundMoney(cogs + cost);
+    const cost = roundMoney(sm.cogsAmount ?? sm.totalCost ?? (sm.unitCost ?? 0) * sm.quantity);
+    const kind = sm.movementType;
+    if (
+      kind === "SALE_ISSUE" ||
+      kind === "SALE_COMPLETED" ||
+      (!kind && sm.type === "out" && (sm.refType === "sales" || sm.refType === "delivery"))
+    ) {
+      cogs = roundMoney(cogs + cost);
+    } else if (
+      kind === "SALES_RETURN" ||
+      (!kind &&
+        sm.type === "return" &&
+        sm.refType === "sales" &&
+        !/^Reservation released\b/i.test(sm.notes || ""))
+    ) {
+      cogs = roundMoney(cogs - cost);
+    } else if (
+      !kind &&
+      sm.type === "in" &&
+      /Reverse/i.test(sm.notes || "") &&
+      (sm.refType === "sales" || sm.refType === "delivery")
+    ) {
+      // Client restoreStock writes the remaining average cost, not original issued cost.
+      // Recover the source issue cost instead; the reversal stays on its own date.
+      const issues = stockMovements.filter(
+        (m) =>
+          m.productId === sm.productId &&
+          m.refType === sm.refType &&
+          m.refId === sm.refId &&
+          m.type === "out" &&
+          (parseRecordTime(m.date) ?? 0) <= (parseRecordTime(sm.date) ?? Infinity),
+      );
+      const unique = [...new Map(issues.map((m) => [m.movementId || m.id, m])).values()];
+      const qty = unique.reduce((sum, m) => sum + m.quantity, 0);
+      const issuedCost = unique.reduce(
+        (sum, m) => sum + (m.cogsAmount ?? m.totalCost ?? (m.unitCost ?? 0) * m.quantity),
+        0,
+      );
+      cogs = roundMoney(cogs - (qty > 0 ? issuedCost * Math.min(sm.quantity / qty, 1) : cost));
+    } else if (
+      kind === "DAMAGE" ||
+      kind === "LOSS" ||
+      kind === "ADJUSTMENT_OUT" ||
+      kind === "ADJUSTMENT_IN"
+    ) {
+      if (kind === "ADJUSTMENT_IN" || kind === "ADJUSTMENT_OUT") {
+        // Openings and operational refill/return movements are not stock-count gains/losses.
+        if (sm.refType !== "adjustment" || /^(INIT|opening)(?:\b|[_:-])/i.test(sm.refId || ""))
+          continue;
+        const key = `${sm.refId || sm.movementId || sm.id}:${sm.productId}:${kind}`;
+        if (adjustmentKeys.has(key)) continue;
+        adjustmentKeys.add(key);
+      }
+      const category =
+        kind === "DAMAGE"
+          ? "Inventory damage"
+          : kind === "LOSS"
+            ? "Inventory loss"
+            : "Inventory adjustments";
+      inventoryExpenses.set(
+        category,
+        roundMoney(
+          (inventoryExpenses.get(category) ?? 0) + (kind === "ADJUSTMENT_IN" ? -cost : cost),
+        ),
+      );
+    }
   }
 
-  const grossProfit = roundMoney(revenue - cogs);
-
   // 3. Operating Expenses
-  const expCategories = new Map<string, number>();
+  const expCategories = inventoryExpenses;
   for (const exp of expenses) {
     if (!isInRange(exp.date)) continue;
     const cat = exp.category || "General";
@@ -410,67 +527,105 @@ export function computeProfitAndLoss(opts: {
     if (v.type === "journal" && v.lines) {
       if (!isInRange(v.date)) continue;
       for (const line of v.lines) {
-        if (line.debit > 0 && /expense|salary|rent|utility|fuel/i.test(line.accountName)) {
+        const account = coa.get(line.accountId);
+        if (
+          account?.type === "Income" ||
+          (!account && /^(sales|revenue|other income|interest income)$/i.test(line.accountName))
+        ) {
+          revenue = roundMoney(revenue + line.credit - line.debit);
+        }
+        if (expenseLine(line)) {
           const cat = line.accountName;
-          expCategories.set(cat, roundMoney((expCategories.get(cat) || 0) + line.debit));
+          expCategories.set(
+            cat,
+            roundMoney((expCategories.get(cat) || 0) + line.debit - line.credit),
+          );
         }
       }
     }
   }
 
-  // Add Salary / Payroll payment vouchers (disbursed employee salaries)
-  const processedPayrollIds = new Set<string>();
+  // Linked expense journals recognize payroll once, independently of settlement date.
+  const journalPayrollIds = new Set(
+    vouchers
+      .filter(
+        (v) =>
+          v.type === "journal" && v.refType === "payroll" && v.refId && v.lines?.some(expenseLine),
+      )
+      .map((v) => v.refId),
+  );
+  const paymentPayrollIds = new Set(
+    vouchers
+      .filter((v) => v.type === "payment" && v.refType === "payroll" && v.refId)
+      .map((v) => v.refId),
+  );
+  const paidRuns = new Map(
+    payroll.filter((run) => run.status === "paid").map((run) => [run.id, run]),
+  );
+  const recognizedRuns = new Set<string>();
   for (const v of vouchers) {
     if (
-      v.type === "payment" &&
-      (v.refType === "payroll" || (v.partyType === "employee" && /salary|payroll/i.test(v.notes || "")))
-    ) {
-      if (!isInRange(v.date)) continue;
-      if (v.refId) processedPayrollIds.add(v.refId);
-      const cat = "Salaries";
-      expCategories.set(cat, roundMoney((expCategories.get(cat) || 0) + Number(v.amount || 0)));
-    }
+      v.type !== "payment" ||
+      !(
+        v.refType === "payroll" ||
+        (v.partyType === "employee" && /salary|payroll/i.test(v.notes || ""))
+      )
+    )
+      continue;
+    if ((v.refId && journalPayrollIds.has(v.refId)) || !isInRange(v.date)) continue;
+    const run = v.refType === "payroll" && v.refId ? paidRuns.get(v.refId) : undefined;
+    if (run && recognizedRuns.has(run.id)) continue;
+    if (run) recognizedRuns.add(run.id);
+    // Recovery settles an employee advance asset; earned salary remains the full net.
+    expCategories.set(
+      "Salaries",
+      roundMoney(
+        (expCategories.get("Salaries") ?? 0) +
+          ((v as AccountingVoucher).payrollNet ?? run?.net ?? v.amount),
+      ),
+    );
   }
-
-  // Add any paid payroll runs not already covered by a payment voucher
   for (const run of payroll) {
-    if (run.status === "paid" && (run.net || 0) > 0) {
-      if (processedPayrollIds.has(run.id)) continue;
-      const runDate = run.paidAt || run.createdAt || `${run.month}-01`;
-      if (!isInRange(runDate)) continue;
-      // Do not double-count initial seed payroll if covered by JV in the same range
-      const hasMatchingJv = vouchers.some(
-        (v) =>
-          v.type === "journal" &&
-          isInRange(v.date) &&
-          v.lines?.some((l) => /salary/i.test(l.accountName)),
-      );
-      if (run.month === "2026-09" && hasMatchingJv) continue;
-      processedPayrollIds.add(run.id);
-      const cat = "Salaries";
-      expCategories.set(cat, roundMoney((expCategories.get(cat) || 0) + Number(run.net || 0)));
-    }
+    if (run.status !== "paid" || journalPayrollIds.has(run.id) || paymentPayrollIds.has(run.id))
+      continue;
+    if (!isInRange(run.paidAt || run.createdAt || run.month + "-01")) continue;
+    expCategories.set(
+      "Salaries",
+      roundMoney((expCategories.get("Salaries") ?? 0) + (run.net || 0)),
+    );
   }
 
   const expenseList = Array.from(expCategories.entries())
     .map(([name, amount]) => ({ name, amount: roundMoney(amount) }))
     .sort((a, b) => b.amount - a.amount);
   const totalExpenses = roundMoney(expenseList.reduce((sum, e) => sum + e.amount, 0));
-  const netProfit = roundMoney(grossProfit - totalExpenses);
+  const netProfit = roundMoney(revenue - cogs - totalExpenses);
 
-  return { revenue, cogs, grossProfit, expenseList, totalExpenses, netProfit };
+  return {
+    revenue,
+    cogs,
+    grossProfit: roundMoney(revenue - cogs),
+    expenseList,
+    totalExpenses,
+    netProfit,
+    warnings,
+  };
 }
 
 export type BalanceSheetStatement = {
   cash: number;
   bank: number;
   inventoryValue: number;
+  inputVat: number;
   ar: number;
+  employeeAdvance: number;
+  journalCurrentAssets: number;
   currentAssets: number;
   fixedAssets: number;
   totalAssets: number;
   ap: number;
   outputVat: number;
+  journalLiabilities: number;
   totalLiabilities: number;
   ownerCapital: number;
   ownerDrawings: number;
@@ -479,6 +634,7 @@ export type BalanceSheetStatement = {
   totalLiabilitiesAndEquity: number;
   isBalanced: boolean;
   discrepancy: number;
+  warnings: string[];
 };
 
 /**
@@ -500,6 +656,9 @@ export function computeBalanceSheet(opts: {
   vouchers?: Voucher[];
   accounts?: Account[];
   ownerCapitalOverride?: number;
+  payroll?: PayrollRun[];
+  supplierReturns?: SupplierReturn[];
+  chartOfAccounts?: ChartOfAccount[];
 }): BalanceSheetStatement {
   const {
     ledger,
@@ -531,7 +690,7 @@ export function computeBalanceSheet(opts: {
   // 2. Inventory Value (Closing Stock from remaining cost layers)
   const inventoryValue = roundMoney(
     products.reduce((sum, p) => {
-      const open = costLayers.filter((l) => l.productId === p.id && (l.qtyRemaining || 0) > 0);
+      const open = costLayers.filter((l) => l.productId === p.id);
       const val =
         open.length > 0
           ? open.reduce((acc, l) => acc + l.qtyRemaining * (l.unitCost || 0), 0)
@@ -543,36 +702,227 @@ export function computeBalanceSheet(opts: {
   // 3. Accounts Receivable
   const { totalDue: ar } = computeCustomerReceivables(customers, sales, vouchers);
 
-  const currentAssets = roundMoney(cash + bank + inventoryValue + ar);
-  const fixedAssets = roundMoney(assets.reduce((sum, a) => sum + (a.currentValue || 0), 0));
+  const warnings: string[] = [];
+  const coa = opts.chartOfAccounts ?? [];
+  const journalBalances = new Map<
+    string,
+    { name: string; type?: ChartOfAccount["type"]; balance: number; assetId?: string }
+  >();
+  const addJournal = (
+    id: string,
+    name: string,
+    debit: number,
+    credit: number,
+    assetId?: string,
+  ) => {
+    const account = coa.find((a) => a.id === id || a.name === name);
+    const key = `${account?.id || name}:${assetId || ""}`;
+    const row = journalBalances.get(key) ?? {
+      name: account?.name || name,
+      type: account?.type,
+      balance: 0,
+      assetId,
+    };
+    row.balance = roundMoney(row.balance + debit - credit);
+    journalBalances.set(key, row);
+  };
+  for (const v of vouchers) {
+    if (v.type !== "journal") continue;
+    for (const l of v.lines ?? [])
+      addJournal(
+        l.accountId,
+        l.accountName,
+        l.debit,
+        l.credit,
+        (l as AccountingJournalLine).assetId || journalAssetId(l.notes),
+      );
+  }
+  // Voucher lines are canonical; ledger is a fallback for journal-only historical records.
+  const journalIds = new Set(vouchers.filter((v) => v.type === "journal").map((v) => v.id));
+  for (const e of ledger) {
+    if (e.category !== "journal" || (e.refId && journalIds.has(e.refId))) continue;
+    addJournal(
+      e.account,
+      e.account,
+      e.direction === "in" ? e.amount : 0,
+      e.direction === "out" ? e.amount : 0,
+      journalAssetId(e.notes),
+    );
+  }
+
+  let employeeAdvance = 0;
+  const advanceRefs = new Set<string>();
+  const recoveryRefs = new Set<string>();
+  for (const v of vouchers) {
+    if (String(v.refType) === "salaryAdvance") {
+      const key = v.refId || v.id;
+      if (!advanceRefs.has(key))
+        employeeAdvance = roundMoney(
+          employeeAdvance + (v.type === "payment" ? v.amount : -v.amount),
+        );
+      advanceRefs.add(key);
+    }
+    if (v.refType === "payroll" && v.type === "payment" && v.refId) {
+      if (recoveryRefs.has(v.refId)) continue;
+      const run = opts.payroll?.find((r) => r.id === v.refId && r.status === "paid");
+      const recovered =
+        (v as AccountingVoucher).advanceRecovered ??
+        run?.advanceRecovered ??
+        run?.advanceSettlements?.reduce((sum, s) => sum + s.amount, 0) ??
+        0;
+      employeeAdvance = roundMoney(employeeAdvance - recovered);
+      recoveryRefs.add(v.refId);
+    }
+  }
+  for (const e of ledger) {
+    if (String(e.refType) !== "salaryAdvance" || advanceRefs.has(e.refId || e.id)) continue;
+    if (!isCashBookAccount(e.account, accounts) && !isBankBookAccount(e.account, accounts))
+      continue;
+    employeeAdvance = roundMoney(employeeAdvance + (e.direction === "out" ? e.amount : -e.amount));
+  }
+  for (const run of opts.payroll ?? []) {
+    if (run.status !== "paid" || recoveryRefs.has(run.id)) continue;
+    employeeAdvance = roundMoney(
+      employeeAdvance -
+        (run.advanceRecovered ??
+          run.advanceSettlements?.reduce((sum, s) => sum + s.amount, 0) ??
+          0),
+    );
+  }
+
+  let journalCurrentAssets = 0;
+  let journalLiabilities = 0;
+  let journalFixedAssets = 0;
+  for (const row of journalBalances.values()) {
+    const name = row.name;
+    if (isCashBookAccount(name, accounts) || isBankBookAccount(name, accounts)) continue;
+    if (/employee advance|salary advance/i.test(name)) {
+      if (advanceRefs.size === 0 && !ledger.some((e) => String(e.refType) === "salaryAdvance"))
+        employeeAdvance = roundMoney(employeeAdvance + row.balance);
+      continue;
+    }
+    if (row.type === "Liability" || (!row.type && /payable|liability|loan payable/i.test(name))) {
+      journalLiabilities = roundMoney(journalLiabilities - row.balance);
+    } else if (
+      row.assetId ||
+      row.type === "Asset" ||
+      (!row.type &&
+        /fixed asset|vehicles?|equipment|machinery|furniture|buildings?|land|receivable|inventory/i.test(
+          name,
+        ))
+    ) {
+      // Registry/layers own their carrying values; a journal must not duplicate an acquisition.
+      if (/inventory|stock/i.test(name)) continue;
+      const registered = row.assetId ? assets.find((a) => a.id === row.assetId) : undefined;
+      if (registered) {
+        if (Math.abs(registered.currentValue - row.balance) > 0.009)
+          warnings.push(
+            `Asset ${registered.id}: register carrying value ${registered.currentValue} differs from journal ${row.balance}; reconcile valuation`,
+          );
+        continue;
+      }
+      if (row.assetId) warnings.push(`Journal references missing asset ${row.assetId}`);
+      if (/receivable|prepaid|deposit|current asset/i.test(name))
+        journalCurrentAssets = roundMoney(journalCurrentAssets + row.balance);
+      else journalFixedAssets = roundMoney(journalFixedAssets + row.balance);
+    } else if (
+      !row.type &&
+      row.balance &&
+      !/capital|drawing|expense|salary|salaries|rent|fuel|revenue|income|sales|depreciation/i.test(
+        name,
+      )
+    ) {
+      warnings.push(`Unclassified journal account: ${name}; supply chartOfAccounts`);
+    }
+  }
+  for (const asset of assets) {
+    if (![...journalBalances.values()].some((r) => r.assetId === asset.id))
+      warnings.push(`Asset ${asset.id} has no linked acquisition/opening journal`);
+  }
+  // Settling a previously recognized payroll payable is a liability settlement.
+  const accruedPayroll = new Set(
+    vouchers
+      .filter(
+        (v) =>
+          v.type === "journal" &&
+          v.refType === "payroll" &&
+          v.lines?.some((l) => /payable/i.test(l.accountName) && l.credit > 0),
+      )
+      .map((v) => v.refId),
+  );
+  const settledPayroll = new Set<string>();
+  for (const v of vouchers) {
+    if (
+      v.type !== "payment" ||
+      v.refType !== "payroll" ||
+      !v.refId ||
+      !accruedPayroll.has(v.refId) ||
+      settledPayroll.has(v.refId)
+    )
+      continue;
+    const run = opts.payroll?.find((r) => r.id === v.refId);
+    journalLiabilities = roundMoney(
+      journalLiabilities - ((v as AccountingVoucher).payrollNet ?? run?.net ?? v.amount),
+    );
+    settledPayroll.add(v.refId);
+  }
+  if (employeeAdvance < 0) warnings.push("Employee advance recovery exceeds recorded advances");
+  // App model: purchase layer costs exclude tax, so posted purchase tax is a
+  // separate current asset. This calculation makes no claim about legal eligibility.
+  const inputVat = roundMoney(
+    purchases
+      .filter((p) => isPostedPurchaseStatus(p.status))
+      .reduce((sum, p) => sum + (p.tax || 0), 0) -
+      (opts.supplierReturns ?? [])
+        .filter((r) => r.status !== "cancelled")
+        .reduce((sum, r) => sum + (r.tax || 0), 0),
+  );
+  const currentAssets = roundMoney(
+    cash + bank + inventoryValue + inputVat + ar + employeeAdvance + journalCurrentAssets,
+  );
+  const fixedAssets = roundMoney(
+    assets.reduce((sum, a) => sum + (a.currentValue || 0), 0) + journalFixedAssets,
+  );
   const totalAssets = roundMoney(currentAssets + fixedAssets);
 
   // 4. Liabilities
-  const { totalDue: ap } = computeSupplierPayables(suppliers, purchases, vouchers);
+  const { totalDue: ap } = computeSupplierPayables(
+    suppliers,
+    purchases,
+    vouchers,
+    opts.supplierReturns,
+  );
   const { totalOutputTax: outputVat } = computeOutputVatLiability(sales);
-  const totalLiabilities = roundMoney(ap + outputVat);
+  const totalLiabilities = roundMoney(ap + outputVat + journalLiabilities);
 
   // 5. Equity (Real accounts)
-  const pnl = computeProfitAndLoss({ sales, stockMovements, expenses, vouchers });
+  const pnl = computeProfitAndLoss({
+    sales,
+    stockMovements,
+    expenses,
+    vouchers,
+    payroll: opts.payroll,
+    chartOfAccounts: opts.chartOfAccounts,
+  });
   const retainedEarnings = roundMoney(pnl.netProfit);
+  warnings.push(...pnl.warnings);
 
-  // Owner Capital from ledger/equity or initial investment
+  // Missing recorded equity must remain visible as a discrepancy.
   let ownerCapital = 0;
   let ownerDrawings = 0;
+  for (const row of journalBalances.values()) {
+    if (row.type !== "Equity" && !/capital|drawing/i.test(row.name)) continue;
+    if (/drawing/i.test(row.name)) ownerDrawings = roundMoney(ownerDrawings + row.balance);
+    else ownerCapital = roundMoney(ownerCapital - row.balance);
+  }
   for (const e of ledger) {
-    if (e.refType === "equity" || e.category === "opening") {
-      if (e.notes && /drawings/i.test(e.notes)) {
-        ownerDrawings = roundMoney(ownerDrawings + e.amount);
-      }
-    }
+    if (e.refType !== "equity" || e.category === "journal") continue;
+    const drawings = /drawing/i.test(e.notes || "");
+    const delta = e.amount * (e.direction === "in" ? 1 : -1);
+    if (drawings) ownerDrawings = roundMoney(ownerDrawings - delta);
+    else ownerCapital = roundMoney(ownerCapital + delta);
   }
-
-  if (ownerCapitalOverride != null) {
-    ownerCapital = roundMoney(ownerCapitalOverride);
-  } else {
-    // Initial capital based on real opening ledger balances
-    ownerCapital = roundMoney(totalAssets - totalLiabilities - retainedEarnings + ownerDrawings);
-  }
+  if (ownerCapitalOverride != null) ownerCapital = roundMoney(ownerCapitalOverride);
 
   const totalEquity = roundMoney(ownerCapital - ownerDrawings + retainedEarnings);
   const totalLiabilitiesAndEquity = roundMoney(totalLiabilities + totalEquity);
@@ -583,12 +933,16 @@ export function computeBalanceSheet(opts: {
     cash,
     bank,
     inventoryValue,
+    inputVat,
     ar,
+    employeeAdvance,
+    journalCurrentAssets,
     currentAssets,
     fixedAssets,
     totalAssets,
     ap,
     outputVat,
+    journalLiabilities,
     totalLiabilities,
     ownerCapital,
     ownerDrawings,
@@ -597,6 +951,7 @@ export function computeBalanceSheet(opts: {
     totalLiabilitiesAndEquity,
     isBalanced,
     discrepancy,
+    warnings,
   };
 }
 
@@ -627,12 +982,15 @@ export function computeCashFlow(opts: {
   ledger: LedgerEntry[];
   accounts?: Account[];
   range?: DateRange;
+  chartOfAccounts?: ChartOfAccount[];
 }): CashFlowStatement {
   const { ledger, accounts = [], range } = opts;
 
   const fromTs = range?.preset !== "all" && range?.from ? parseRecordTime(range.from) : null;
   const toTs =
-    range?.preset !== "all" && range?.to ? parseRecordTime(`${range.to}T23:59:59`) : null;
+    range?.preset !== "all" && range?.to
+      ? (parseRecordTime(range.to) ?? NaN) + 86_400_000 - 1
+      : null;
 
   const isCashOrBank = (account: string) =>
     isCashBookAccount(account, accounts) || isBankBookAccount(account, accounts);
@@ -668,6 +1026,51 @@ export function computeCashFlow(opts: {
 
     const amt = e.amount;
     const isIn = e.direction === "in";
+    const counterparts =
+      e.category === "journal" && e.refId
+        ? ledger.filter(
+            (other) =>
+              other.refId === e.refId &&
+              other.refType === e.refType &&
+              !isCashOrBank(other.account),
+          )
+        : [];
+    const hasAsset = counterparts.some((other) =>
+      /fixed asset|vehicles?|equipment|machinery|furniture|buildings?|land/i.test(other.account),
+    );
+    const hasEquity = counterparts.some(
+      (other) =>
+        /capital|drawing/i.test(other.account) ||
+        opts.chartOfAccounts?.some(
+          (a) => a.type === "Equity" && (a.id === other.account || a.name === other.account),
+        ),
+    );
+    if (hasAsset) {
+      if (isIn) assetSales = roundMoney(assetSales + amt);
+      else assetPurchases = roundMoney(assetPurchases + amt);
+      continue;
+    }
+    if (hasEquity) {
+      if (counterparts.some((other) => /drawing/i.test(other.account)))
+        ownerDrawings = roundMoney(ownerDrawings + (isIn ? -amt : amt));
+      else capitalContributions = roundMoney(capitalContributions + (isIn ? amt : -amt));
+      continue;
+    }
+    // Journal transfers between cash/bank accounts have no cash-flow activity.
+    if (
+      e.category === "journal" &&
+      e.refId &&
+      counterparts.length === 0 &&
+      ledger.some(
+        (other) =>
+          other.id !== e.id &&
+          other.refId === e.refId &&
+          other.refType === e.refType &&
+          isCashOrBank(other.account) &&
+          other.direction !== e.direction,
+      )
+    )
+      continue;
 
     // Operating
     if (e.category === "collection" || e.category === "receipt" || e.refType === "sales") {
@@ -684,9 +1087,7 @@ export function computeCashFlow(opts: {
       else operatingExpenses = roundMoney(operatingExpenses - amt);
     } else if (e.category === "opening") {
       // Opening balance float is an opening balance, not current period financing
-      if (fromTs == null) {
-        openingCash = roundMoney(openingCash + (isIn ? amt : -amt));
-      }
+      openingCash = roundMoney(openingCash + (isIn ? amt : -amt));
     } else if (e.refType === "equity") {
       if (/drawing/i.test(e.notes || "")) {
         ownerDrawings = roundMoney(ownerDrawings + (isIn ? -amt : amt));
@@ -696,6 +1097,9 @@ export function computeCashFlow(opts: {
     } else if (e.category === "journal") {
       if (isIn) customerReceipts = roundMoney(customerReceipts + amt);
       else operatingExpenses = roundMoney(operatingExpenses + amt);
+    } else {
+      // Unclassified cash payments/adjustments remain visible in operating cash flow.
+      operatingExpenses = roundMoney(operatingExpenses + (isIn ? -amt : amt));
     }
   }
 
@@ -769,6 +1173,9 @@ export function reconcileFinancialIntegrity(opts: {
   vouchers: Voucher[];
   assets: BusinessAsset[];
   accounts?: Account[];
+  payroll?: PayrollRun[];
+  supplierReturns?: SupplierReturn[];
+  chartOfAccounts?: ChartOfAccount[];
 }): IntegrityAuditReport {
   const {
     products,
@@ -801,11 +1208,16 @@ export function reconcileFinancialIntegrity(opts: {
 
   // 2. AR Reconciliation
   const { totalDue: ar } = computeCustomerReceivables(customers, sales, vouchers);
-  const arBalanced = Number.isFinite(ar) && ar >= 0;
+  const arBalanced = Number.isFinite(ar);
 
   // 3. AP Reconciliation
-  const { totalDue: ap } = computeSupplierPayables(suppliers, purchases, vouchers);
-  const apBalanced = Number.isFinite(ap) && ap >= 0;
+  const { totalDue: ap } = computeSupplierPayables(
+    suppliers,
+    purchases,
+    vouchers,
+    opts.supplierReturns,
+  );
+  const apBalanced = Number.isFinite(ap);
 
   // 4. Cash Flow & Ledger Reconciliation
   const cf = computeCashFlow({ ledger, accounts });
@@ -819,7 +1231,14 @@ export function reconcileFinancialIntegrity(opts: {
   const vatBalanced = totalOutputTax >= 0;
 
   // 6. COGS
-  const pnl = computeProfitAndLoss({ sales, stockMovements, expenses, vouchers });
+  const pnl = computeProfitAndLoss({
+    sales,
+    stockMovements,
+    expenses,
+    vouchers,
+    payroll: opts.payroll,
+    chartOfAccounts: opts.chartOfAccounts,
+  });
   const cogsConsistent = pnl.cogs >= 0;
 
   // 7. Balance Sheet Equation
@@ -836,9 +1255,13 @@ export function reconcileFinancialIntegrity(opts: {
     expenses,
     vouchers,
     accounts,
+    payroll: opts.payroll,
+    supplierReturns: opts.supplierReturns,
+    chartOfAccounts: opts.chartOfAccounts,
   });
 
   const balanceSheetEquationSatisfied = bs.isBalanced;
+  messages.push(...bs.warnings);
   if (!balanceSheetEquationSatisfied) {
     messages.push(`Balance sheet discrepancy of ${bs.discrepancy} detected`);
   }

@@ -310,6 +310,9 @@ async function issueStock(productId: string, qty: number, meta?: StockMeta) {
   if (method === "average") {
     unitCost = product.cost ?? 0;
     cogsAmount = take * unitCost;
+    for (const layer of await listOpenLayers(product.id)) {
+      if (layer.unitCost !== unitCost) await call("update", "costLayers", layer.id, { unitCost });
+    }
     consumptions = await consumeLayers(product.id, take, "fifo");
   } else {
     consumptions = await consumeLayers(product.id, take, method);
@@ -2248,77 +2251,13 @@ export const inventoryService = {
     productId: string,
     quantity: number,
     type: "in" | "out" | "adjust",
-    notes?: string,
+    notes = "",
+    date?: string,
+    requestId?: string,
   ) => {
-    const product = await call<Product | null>("get", "products", productId);
-    if (!product) throw new Error("Product not found");
-    if (!Number.isFinite(quantity) || quantity < 0) throw new Error("Quantity cannot be negative");
-    if (type !== "adjust" && quantity <= 0) throw new Error("Quantity must be positive");
-    const current = product.stock ?? 0;
-    let delta = 0;
-    if (type === "in") delta = quantity;
-    else if (type === "out") delta = -quantity;
-    else delta = quantity - current;
-    if (delta === 0) return;
-    if (current + delta < 0)
-      throw new Error(
-        `Insufficient stock for ${product.name} (available ${current}, delta ${delta})`,
-      );
-    const refId = genOrderNo("ADJ");
-    const meta: StockMeta = {
-      refType: "adjustment",
-      refId,
-      movementType: delta > 0 ? "ADJUSTMENT_IN" : "ADJUSTMENT_OUT",
-      notes: `ADJ ${refId} · ${product.name} · previous ${current} · qty ${delta > 0 ? "+" : ""}${delta} · updated ${current + delta}${notes ? ` · ${notes}` : ""}`,
-      by: notes?.trim() || "Warehouse",
-    };
-    if (delta > 0) {
-      await receiveStock(productId, delta, product.cost ?? 0, meta);
-    } else {
-      await issueStock(productId, -delta, meta);
-    }
-    const isCyl = isCylinderProduct(product);
-    if (isCyl) {
-      const cylinders = await call<Cylinder[]>("list", "cylinders");
-      if (delta > 0) {
-        const serials = suggestSerials(product.code, delta).map(
-          (s) => `${s}-${Math.random().toString(36).slice(2, 6)}`,
-        );
-        for (const serial of serials) {
-          await cylinderService.create({
-            serialNumber: serial,
-            productId: product.id,
-            capacity: product.category === "LPG" ? Number(product.name.match(/\d+/)?.[0] || 0) : 0,
-            status: "in_stock",
-            fillLevel: "full",
-            location: "Warehouse",
-            gasCategory: product.category as ProductCategory,
-          });
-        }
-      } else {
-        const ids = pickFifo(
-          cylinders.filter((c) => !issueLockIsActive(c.issueLock)),
-          productId,
-          -delta,
-        );
-        if (ids.length < -delta)
-          throw new Error(`Only ${ids.length} full cylinder(s) available to decrease`);
-        await claimCylinderIds(ids, ["in_stock", "in_transit"]);
-        await afterCylinderClaim(ids, async () => {
-          for (const cid of ids) {
-            await cylinderService.addMovement({
-              cylinderId: cid,
-              type: "stock_out",
-              fromLocation: "Warehouse",
-              toLocation: "Stock Out",
-              notes: `Stock adjustment ${refId}`,
-              by: meta.by || "Warehouse",
-              purpose: "stock_out",
-            });
-          }
-        });
-      }
-    }
+    const { adjustStockFn } = await import("@/lib/stock-adjustment.functions");
+    const { toDateInputValue } = await import("@/lib/date-range");
+    return adjustStockFn({ data: { productId, quantity, type, notes, date: date || toDateInputValue(), requestId: requestId || crypto.randomUUID() } });
   },
   reconciliationReport: async (): Promise<SerialReconciliationItem[]> => {
     const products = await call<Product[]>("list", "products");
@@ -2397,54 +2336,21 @@ export const accountingService = {
     });
     return voucher;
   },
-  postJournal: async (data: { date?: string; notes?: string; lines: JournalLine[] }) => {
-    const { total, lines } = assertJournalLines(data.lines);
-    const firstDr = lines.find((l) => l.debit > 0);
-    const firstCr = lines.find((l) => l.credit > 0);
-    const voucher = await call<Voucher>("create", "vouchers", undefined, {
-      voucherNo: genOrderNo("JV"),
-      type: "journal",
-      date: toVoucherDate(data.date),
-      account: firstDr?.accountName || "journal",
-      amount: total,
-      drAccount: firstDr?.accountName,
-      crAccount: firstCr?.accountName,
-      lines,
-      notes: data.notes,
-      createdAt: new Date().toISOString(),
-    });
-    for (const line of lines) {
-      const note = line.notes || data.notes || voucher.voucherNo;
-      if (line.debit > 0) {
-        await postLedger({
-          date: voucher.date,
-          account: line.accountName as PaymentMethod,
-          direction: "in",
-          amount: line.debit,
-          category: "journal",
-          refType: "voucher",
-          refId: voucher.id,
-          notes: note,
-        });
-      }
-      if (line.credit > 0) {
-        await postLedger({
-          date: voucher.date,
-          account: line.accountName as PaymentMethod,
-          direction: "out",
-          amount: line.credit,
-          category: "journal",
-          refType: "voucher",
-          refId: voucher.id,
-          notes: note,
-        });
-      }
-    }
-    return voucher;
+  postJournal: async (data: { date?: string; notes?: string; lines: JournalLine[]; requestId?: string }) => {
+    const { postJournalFn } = await import("@/lib/journal.functions");
+    const { toDateInputValue } = await import("@/lib/date-range");
+    return postJournalFn({ data: { ...data, date: data.date || toDateInputValue(), requestId: data.requestId || crypto.randomUUID() } });
   },
   removeVoucher: async (id: string) => {
     const voucher = await call<Voucher | null>("get", "vouchers", id);
     if (!voucher) throw new Error("Voucher not found");
+    if (voucher.type === "journal") {
+      const { removeJournalFn } = await import("@/lib/journal.functions");
+      return removeJournalFn({ data: { id } });
+    }
+    if (voucher.refType === "payroll" || String(voucher.refType) === "salaryAdvance") {
+      throw new Error("বেতন ও অগ্রিমের হিসাব সরাসরি মুছতে পারবেন না");
+    }
 
     // Money receipts created from invoice payment: reverse sales paid + matching ledger
     if (voucher.type === "receipt" && voucher.refType === "sales" && voucher.refId) {
@@ -2504,14 +2410,26 @@ export const accountingService = {
   removeCoa: (id: string) => call<{ ok: true }>("remove", "chartOfAccounts", id),
 
   listAssets: () => call<BusinessAsset[]>("list", "assets"),
-  createAsset: (data: Omit<BusinessAsset, "id" | "createdAt">) =>
-    call<BusinessAsset>("create", "assets", undefined, {
-      ...data,
-      createdAt: new Date().toISOString(),
-    }),
-  updateAsset: (id: string, data: Partial<BusinessAsset>) =>
-    call<BusinessAsset>("update", "assets", id, data),
-  removeAsset: (id: string) => call<{ ok: true }>("remove", "assets", id),
+  createAsset: async (data: import("@/lib/assets").CreateAssetInput) => {
+    const { mutateAsset } = await import("@/lib/asset-service");
+    return (await mutateAsset({ ...data, action: "create" })).asset!;
+  },
+  updateAsset: async (id: string, data: Pick<BusinessAsset, "name" | "category"> & { requestId: string }) => {
+    const { mutateAsset } = await import("@/lib/asset-service");
+    return (await mutateAsset({ ...data, action: "update", id })).asset!;
+  },
+  depreciateAsset: async (data: Omit<Extract<import("@/lib/assets").AssetCommand, { action: "depreciate" }>, "action">) => {
+    const { mutateAsset } = await import("@/lib/asset-service");
+    return (await mutateAsset({ ...data, action: "depreciate" })).asset!;
+  },
+  adoptAsset: async (data: Omit<Extract<import("@/lib/assets").AssetCommand, { action: "adopt" }>, "action">) => {
+    const { mutateAsset } = await import("@/lib/asset-service");
+    return (await mutateAsset({ ...data, action: "adopt" })).asset!;
+  },
+  removeAsset: async (id: string, requestId: string) => {
+    const { mutateAsset } = await import("@/lib/asset-service");
+    return mutateAsset({ action: "remove", id, requestId });
+  },
 };
 
 export const hrService = {
@@ -2529,79 +2447,4 @@ export const hrService = {
   },
   removeEmployee: (id: string) => call<{ ok: true }>("remove", "employees", id),
   listPayroll: () => call<PayrollRun[]>("list", "payroll"),
-  createPayroll: async (data: Omit<PayrollRun, "id" | "createdAt" | "net" | "status">) => {
-    const net = data.basic + data.bonus + data.allowance - data.deduction;
-    return call<PayrollRun>("create", "payroll", undefined, {
-      ...data,
-      net,
-      status: "draft",
-      createdAt: new Date().toISOString(),
-    });
-  },
-  updatePayroll: async (
-    id: string,
-    data: Partial<Pick<PayrollRun, "bonus" | "allowance" | "deduction" | "basic" | "month">>,
-  ) => {
-    const run = await call<PayrollRun | null>("get", "payroll", id);
-    if (!run) throw new Error("Payroll not found");
-    if (run.status !== "draft") throw new Error("Only draft payslips can be edited");
-    const basic = data.basic ?? run.basic;
-    const bonus = data.bonus ?? run.bonus;
-    const allowance = data.allowance ?? run.allowance;
-    const deduction = data.deduction ?? run.deduction;
-    return call<PayrollRun>("update", "payroll", id, {
-      ...data,
-      net: basic + bonus + allowance - deduction,
-    });
-  },
-  removePayroll: async (id: string) => {
-    const run = await call<PayrollRun | null>("get", "payroll", id);
-    if (!run) throw new Error("Payroll not found");
-    if (run.status !== "draft") throw new Error("Only draft payslips can be deleted");
-    const ledger = await call<LedgerEntry[]>("list", "ledger");
-    for (const entry of ledger.filter((e) => e.refType === "payroll" && e.refId === id)) {
-      await call("remove", "ledger", entry.id);
-    }
-    const vouchers = await call<Voucher[]>("list", "vouchers");
-    for (const v of vouchers.filter((x) => x.refType === "payroll" && x.refId === id)) {
-      await call("remove", "vouchers", v.id);
-    }
-    return call<{ ok: true }>("remove", "payroll", id);
-  },
-  payPayroll: async (id: string, method: PaymentMethod = "bank") => {
-    const run = await call<PayrollRun | null>("get", "payroll", id);
-    if (!run) throw new Error("Payroll not found");
-    if (run.status === "paid") throw new Error("Already paid");
-    const account = method === "cheque" || method === "mobile" ? "bank" : method;
-    const payDate = new Date().toISOString();
-    const voucher = await call<Voucher>("create", "vouchers", undefined, {
-      voucherNo: genOrderNo("PV"),
-      type: "payment",
-      date: toVoucherDate(payDate),
-      account,
-      amount: run.net,
-      partyType: "employee",
-      partyId: run.employeeId,
-      partyName: run.employeeName,
-      notes: `Salary ${run.employeeName} · ${run.month}`,
-      refType: "payroll",
-      refId: id,
-      createdAt: payDate,
-    });
-    await postLedger({
-      date: payDate,
-      account,
-      direction: "out",
-      amount: run.net,
-      category: "expense",
-      refType: "payroll",
-      refId: id,
-      notes: `Salary ${run.employeeName} · ${run.month} (${voucher.voucherNo})`,
-    });
-    return call<PayrollRun>("update", "payroll", id, {
-      status: "paid",
-      paidAt: payDate,
-      paymentMethod: method,
-    });
-  },
 };

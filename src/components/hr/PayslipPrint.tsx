@@ -5,6 +5,7 @@ import { formatCurrency, formatDate } from "@/utils/formatters";
 import type { PayrollRun } from "@/types";
 import { useT } from "@/i18n";
 import { Printer } from "lucide-react";
+import { settledAmount } from "@/lib/payroll";
 
 export function PayslipPrint({
   run,
@@ -45,7 +46,9 @@ export function PayslipPrint({
             <div>
               <p className="mb-1 font-semibold text-muted-foreground">Employee Details</p>
               <p className="text-lg font-medium">{run.employeeName}</p>
-              <p>Status: {t(`status.${run.status}` as any) || run.status}</p>
+              <p>
+                Status: {t(run.status === "paid" ? "status.paid" : "status.draft") || run.status}
+              </p>
             </div>
             <div className="text-right">
               <p className="mb-1 font-semibold text-muted-foreground">Payment Info</p>
@@ -53,7 +56,14 @@ export function PayslipPrint({
               <p>
                 Method:{" "}
                 {run.paymentMethod
-                  ? t(`common.${run.paymentMethod}` as any) || run.paymentMethod
+                  ? (
+                      {
+                        cash: t("common.cash"),
+                        bank: t("common.bank"),
+                        cheque: t("common.cheque"),
+                        mobile: "মোবাইল",
+                      } as Record<string, string>
+                    )[run.paymentMethod] || run.paymentMethod
                   : "—"}
               </p>
             </div>
@@ -111,8 +121,22 @@ export function PayslipPrint({
           <div className="flex justify-end pt-4">
             <div className="w-64 border-t-2 border-foreground pt-2">
               <div className="flex items-center justify-between text-lg font-bold">
-                <span>Net Pay</span>
+                <span>নিট বেতন</span>
                 <span>{formatCurrency(run.net)}</span>
+              </div>
+              <div className="mt-2 flex justify-between text-sm">
+                <span>অগ্রিম সমন্বয়</span>
+                <span>
+                  {formatCurrency(
+                    run.advanceRecovered ??
+                      run.advanceSettlements?.reduce((sum, item) => sum + item.amount, 0) ??
+                      0,
+                  )}
+                </span>
+              </div>
+              <div className="mt-2 flex justify-between font-semibold">
+                <span>{run.status === "paid" ? "নগদ/ব্যাংক পরিশোধ" : "পরিশোধযোগ্য"}</span>
+                <span>{formatCurrency(run.cashPaid ?? run.net - settledAmount(run))}</span>
               </div>
             </div>
           </div>

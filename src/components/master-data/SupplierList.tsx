@@ -49,6 +49,7 @@ export function SupplierList() {
         rows={data}
         searchKeys={["name", "phone"]}
         dateKey="createdAt"
+        defaultDatePreset="all"
         onRowClick={(r) => navigate({ to: "/suppliers/$id", params: { id: r.id } })}
         columns={[
           {

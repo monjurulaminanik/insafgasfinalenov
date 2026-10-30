@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -28,9 +28,15 @@ import {
 import { formatCurrency, formatDate, formatDateTime } from "@/utils/formatters";
 import { buildProductInventory, sumInventory } from "@/lib/cylinder-inventory";
 import { buildStockReport, isMovementIn, isMovementOut } from "@/lib/stock-report";
-import { EMPTY_DATE_RANGE } from "@/lib/date-range";
+import { toDateInputValue } from "@/lib/date-range";
 import { partyCylinderBalance } from "@/lib/customer-cylinders";
-import type { CylinderInventory, GasInventory, ProductInventory, StockMovement, UnitOfMeasure } from "@/types";
+import type {
+  CylinderInventory,
+  GasInventory,
+  ProductInventory,
+  StockMovement,
+  UnitOfMeasure,
+} from "@/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -107,10 +113,7 @@ export function InventoryPage() {
     queryFn: inventoryService.getProductInventory,
   });
 
-  const gasRows = useMemo(
-    () => gasInventory.map((r, i) => ({ ...r, sl: i + 1 })),
-    [gasInventory],
-  );
+  const gasRows = useMemo(() => gasInventory.map((r, i) => ({ ...r, sl: i + 1 })), [gasInventory]);
   const cylinderRows = useMemo(
     () => cylinderInventory.map((r, i) => ({ ...r, sl: i + 1 })),
     [cylinderInventory],
@@ -230,7 +233,7 @@ export function InventoryPage() {
   const [supplierId, setSupplierId] = useState("");
   const [customerId, setCustomerId] = useState("");
   const [partyKind, setPartyKind] = useState<"customer" | "supplier" | "warehouse">("customer");
-  const [sendDate, setSendDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [sendDate, setSendDate] = useState(() => toDateInputValue());
   const [expectedReturn, setExpectedReturn] = useState("");
   const [condition, setCondition] = useState<"full" | "empty" | "damaged">("full");
   const [reason, setReason] = useState("");
@@ -238,6 +241,8 @@ export function InventoryPage() {
   const [treatment, setTreatment] = useState<"charge" | "writeoff" | "none">("none");
   const [lotNumber, setLotNumber] = useState("");
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const adjustmentRequest = useRef("");
+  const isStockAdjustment = type === "in" || type === "out" || type === "adjust";
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["gasInventory"] });
@@ -255,6 +260,7 @@ export function InventoryPage() {
     qc.invalidateQueries({ queryKey: ["customers"] });
     qc.invalidateQueries({ queryKey: ["vouchers"] });
     qc.invalidateQueries({ queryKey: ["ledger"] });
+    qc.invalidateQueries({ queryKey: ["costLayers"] });
   };
 
   const adjust = useMutation({
@@ -351,7 +357,15 @@ export function InventoryPage() {
           quantity: Number(qty),
           notes,
         });
-      return inventoryService.adjust(productId, Number(qty), type, notes);
+      if (!adjustmentRequest.current) adjustmentRequest.current = crypto.randomUUID();
+      return inventoryService.adjust(
+        productId,
+        Number(qty),
+        type,
+        notes,
+        sendDate,
+        adjustmentRequest.current,
+      );
     },
     onSuccess: () => {
       invalidate();
@@ -382,6 +396,7 @@ export function InventoryPage() {
   };
 
   const getPageTitle = () => {
+    if (activeTab === "adjustment") return t("inventory.adjust");
     if (activeTab === "gas") return t("inventory.gasTitle");
     if (activeTab === "cylinder") return t("inventory.cylTitle");
     if (activeTab === "product") return t("inventory.prodTitle");
@@ -401,7 +416,14 @@ export function InventoryPage() {
         title={getPageTitle()}
         description={getPageDesc()}
         actions={
-          <Button type="button" onClick={() => setAdjustOpen(true)}>
+          <Button
+            type="button"
+            onClick={() => {
+              adjustmentRequest.current = crypto.randomUUID();
+              setSendDate(toDateInputValue());
+              setAdjustOpen(true);
+            }}
+          >
             {t("inventory.adjust")}
           </Button>
         }
@@ -444,6 +466,14 @@ export function InventoryPage() {
         >
           <Warehouse className="mr-1.5 h-3.5 w-3.5" />
           {t("nav.inventorySummary")}
+        </Button>
+        <Button
+          type="button"
+          variant={activeTab === "adjustment" ? "default" : "outline"}
+          size="sm"
+          onClick={() => navigate({ to: "/inventory", search: { tab: "adjustment" } })}
+        >
+          {t("inventory.adjust")}
         </Button>
       </div>
 
@@ -530,9 +560,17 @@ export function InventoryPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <button type="button" className="text-left" onClick={() => navigate({ to: "/sales" })}>
-            <StatCard title={t("inventory.reserved")} value={String(summaryCards.reserved)} icon={Truck} />
+            <StatCard
+              title={t("inventory.reserved")}
+              value={String(summaryCards.reserved)}
+              icon={Truck}
+            />
           </button>
-          <button type="button" className="text-left" onClick={() => navigate({ to: "/cylinders" })}>
+          <button
+            type="button"
+            className="text-left"
+            onClick={() => navigate({ to: "/cylinders" })}
+          >
             <StatCard
               title={t("inventory.cardCylinder")}
               value={String(summaryCards.cylinder)}
@@ -602,9 +640,7 @@ export function InventoryPage() {
                   <SelectItem value="loan">{t("inventory.loanCustomer")}</SelectItem>
                   <SelectItem value="sell_cylinder">{t("inventory.sellCylinder")}</SelectItem>
                   <SelectItem value="send_supplier">{t("inventory.sendSupplier")}</SelectItem>
-                  <SelectItem value="receive_supplier">
-                    {t("inventory.receiveSupplier")}
-                  </SelectItem>
+                  <SelectItem value="receive_supplier">{t("inventory.receiveSupplier")}</SelectItem>
                   <SelectItem value="mark_lost">{t("status.lost")}</SelectItem>
                   <SelectItem value="mark_damaged">{t("status.damaged")}</SelectItem>
                   <SelectItem value="repair">{t("inventory.repairDamage")}</SelectItem>
@@ -674,11 +710,21 @@ export function InventoryPage() {
             {type === "refill" && (
               <div className="space-y-1.5">
                 <Label>{t("inventory.refillDate")}</Label>
+                <Input type="date" value={sendDate} onChange={(e) => setSendDate(e.target.value)} />
+              </div>
+            )}
+            {isStockAdjustment && (
+              <div className="space-y-1.5">
+                <Label htmlFor="stock-adjustment-date">{t("common.date")}</Label>
                 <Input
+                  id="stock-adjustment-date"
                   type="date"
                   value={sendDate}
                   onChange={(e) => setSendDate(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  স্টক ও হিসাব একই তারিখে আপডেট হবে। সমন্বয়ের কারণ লিখুন।
+                </p>
               </div>
             )}
             {type === "mark_lost" && (
@@ -809,6 +855,16 @@ export function InventoryPage() {
             <div className="space-y-1.5">
               <Label>{t("common.quantity")}</Label>
               <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} />
+              {isStockAdjustment && productId && Number.isFinite(Number(qty)) && (
+                <p className="text-xs text-muted-foreground">
+                  বর্তমান স্টক: {products.find((p) => p.id === productId)?.stock ?? 0} · সমন্বয়ের
+                  পর:{" "}
+                  {type === "adjust"
+                    ? Number(qty)
+                    : (products.find((p) => p.id === productId)?.stock ?? 0) +
+                      (type === "out" ? -Number(qty) : Number(qty))}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>{type === "refill" ? t("inventory.receivedBy") : t("common.notes")}</Label>
@@ -820,6 +876,9 @@ export function InventoryPage() {
               disabled={
                 !productId ||
                 adjust.isPending ||
+                !Number.isFinite(Number(qty)) ||
+                (isStockAdjustment &&
+                  (!notes.trim() || !sendDate || (type !== "adjust" && Number(qty) <= 0))) ||
                 Number(qty) < 0 ||
                 ((type === "send_supplier" ||
                   type === "receive_supplier" ||
@@ -1082,15 +1141,18 @@ export function InventoryPage() {
         />
       )}
 
-
       {/* SUMMARY MOVEMENT ACTIVITY */}
-      {activeTab === "summary" && (
+      {(activeTab === "summary" || activeTab === "adjustment") && (
         <div>
           <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             {t("inventory.recent")}
           </h3>
           <DataTable<ActivityRow>
-            rows={activity}
+            rows={
+              activeTab === "adjustment"
+                ? activity.filter((m) => m.refType === "adjustment")
+                : activity
+            }
             searchKeys={["productName", "notes", "by"]}
             dateKey="date"
             onRowClick={openActivity}
@@ -1158,6 +1220,21 @@ export function InventoryPage() {
                 className: "text-right tabular-nums",
               },
               { key: "by", header: t("inventory.receivedBy"), render: (r) => r.by || "—" },
+              {
+                key: "reason",
+                header: t("common.notes"),
+                render: (r) => r.notes || "—",
+              },
+              {
+                key: "balanceAfter",
+                header: t("inventory.onHand"),
+                render: (r) => r.balanceAfter,
+              },
+              {
+                key: "value",
+                header: t("inventory.totalValue"),
+                render: (r) => formatCurrency(r.totalCost ?? r.cogsAmount ?? 0),
+              },
               {
                 key: "st",
                 header: t("common.status"),

@@ -31,7 +31,13 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency, formatDate } from "@/utils/formatters";
 import { useT } from "@/i18n";
-import { EMPTY_DATE_RANGE, filterByDateRange, type DateRange } from "@/lib/date-range";
+import {
+  EMPTY_DATE_RANGE,
+  createTodayDateRange,
+  filterByDateRange,
+  parseRecordTime,
+  type DateRange,
+} from "@/lib/date-range";
 import { customerOpeningSigned } from "@/lib/customer-balance";
 import {
   computeCustomerReceivables,
@@ -70,7 +76,7 @@ type ReportId = (typeof reports)[number]["id"];
 export function ReportsPage() {
   const t = useT();
   const [active, setActive] = useState<ReportId>("sales");
-  const [range, setRange] = useState<DateRange>(EMPTY_DATE_RANGE);
+  const [range, setRange] = useState<DateRange>(createTodayDateRange);
   const { data: salesRaw = [] } = useQuery({ queryKey: ["sales"], queryFn: salesService.list });
   const { data: purchasesRaw = [] } = useQuery({
     queryKey: ["purchases"],
@@ -182,13 +188,13 @@ export function ReportsPage() {
     ],
   );
   const { data: cylAcc } = useQuery({
-    queryKey: ["cylAccountability", cylKind, cylProductId, range, cylStatus],
+    queryKey: ["cylAccountability", cylKind, cylProductId, cylStatus],
     queryFn: () =>
       getCylinderAccountabilityFn({
         data: {
           kind: cylKind,
           productId: cylProductId === "all" ? undefined : cylProductId,
-          range,
+          range: EMPTY_DATE_RANGE,
           status: cylStatus,
         },
       }),
@@ -220,14 +226,14 @@ export function ReportsPage() {
   }, [sales]);
 
   const arRows = useMemo(() => {
-    const { rows } = computeCustomerReceivables(customers, sales, vouchersRaw);
+    const { rows } = computeCustomerReceivables(customers, salesRaw, vouchersRaw);
     return rows;
-  }, [customers, sales, vouchersRaw]);
+  }, [customers, salesRaw, vouchersRaw]);
 
   const apRows = useMemo(() => {
-    const { rows } = computeSupplierPayables(suppliers, purchases, vouchersRaw);
+    const { rows } = computeSupplierPayables(suppliers, purchasesRaw, vouchersRaw);
     return rows;
-  }, [suppliers, purchases, vouchersRaw]);
+  }, [suppliers, purchasesRaw, vouchersRaw]);
 
   const glRows = useMemo(() => {
     const map = new Map<
@@ -263,15 +269,26 @@ export function ReportsPage() {
     }
     // Sort entries by date and compute running balance
     for (const acc of map.values()) {
-      acc.entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      let run = 0;
+      acc.entries.sort((a, b) => (parseRecordTime(a.date) ?? 0) - (parseRecordTime(b.date) ?? 0));
+      const from = range.preset !== "all" && range.from ? parseRecordTime(range.from) : null;
+      const opening =
+        from == null
+          ? 0
+          : ledgerRaw.reduce((sum, entry) => {
+              const time = parseRecordTime(entry.date);
+              return entry.account === acc.id && time != null && time < from
+                ? sum + (entry.direction === "in" ? entry.amount : -entry.amount)
+                : sum;
+            }, 0);
+      acc.balance += opening;
+      let run = opening;
       for (const ent of acc.entries) {
         run += ent.debit - ent.credit;
         ent.runningBalance = run;
       }
     }
     return [...map.values()];
-  }, [ledger]);
+  }, [ledger, ledgerRaw, range]);
 
   const pnlData = useMemo(() => {
     return computeProfitAndLoss({
@@ -285,37 +302,48 @@ export function ReportsPage() {
 
   const balanceSheet = useMemo(() => {
     return computeBalanceSheet({
-      ledger,
+      ledger: ledgerRaw,
       products,
       costLayers: costLayersRaw,
       customers,
       suppliers,
-      sales,
-      purchases,
+      sales: salesRaw,
+      purchases: purchasesRaw,
       assets,
       stockMovements: stockMovementsRaw,
-      expenses,
+      expenses: expensesRaw,
       vouchers: vouchersRaw,
       accounts: accountsRaw,
     });
   }, [
-    ledger,
+    ledgerRaw,
     products,
     costLayersRaw,
     customers,
     suppliers,
-    sales,
-    purchases,
+    salesRaw,
+    purchasesRaw,
     assets,
     stockMovementsRaw,
-    expenses,
+    expensesRaw,
     vouchersRaw,
     accountsRaw,
   ]);
 
   const cashFlow = useMemo(() => {
-    return computeCashFlow({ ledger, accounts: accountsRaw, range });
-  }, [ledger, accountsRaw, range]);
+    return computeCashFlow({ ledger: ledgerRaw, accounts: accountsRaw, range });
+  }, [ledgerRaw, accountsRaw, range]);
+
+  const lifetimePnl = useMemo(
+    () =>
+      computeProfitAndLoss({
+        sales: salesRaw,
+        stockMovements: stockMovementsRaw,
+        expenses: expensesRaw,
+        vouchers: vouchersRaw,
+      }),
+    [salesRaw, stockMovementsRaw, expensesRaw, vouchersRaw],
+  );
 
   const trialBalance = useMemo(() => {
     const rows: { name: string; debit: number; credit: number }[] = [];
@@ -341,10 +369,10 @@ export function ReportsPage() {
     addRow("Output VAT Liability", false, balanceSheet.outputVat);
     addRow("Owner Capital", false, balanceSheet.ownerCapital);
 
-    addRow("Sales Revenue", false, pnlData.revenue);
-    addRow("Cost of Goods Sold", true, pnlData.cogs);
+    addRow("Sales Revenue", false, lifetimePnl.revenue);
+    addRow("Cost of Goods Sold", true, lifetimePnl.cogs);
 
-    for (const exp of pnlData.expenseList) {
+    for (const exp of lifetimePnl.expenseList) {
       addRow(`Expense: ${exp.name}`, true, exp.amount);
     }
 
@@ -352,7 +380,7 @@ export function ReportsPage() {
     const totalCredit = rows.reduce((sum, r) => sum + r.credit, 0);
 
     return { rows, totalDebit, totalCredit };
-  }, [balanceSheet, pnlData]);
+  }, [balanceSheet, lifetimePnl]);
 
   return (
     <div className="space-y-4">
@@ -368,6 +396,7 @@ export function ReportsPage() {
       />
       <div className="no-print rounded-xl border bg-card/60 p-3">
         <DateRangeFilter value={range} onChange={setRange} />
+        <p className="mt-2 text-xs text-muted-foreground">{t("reports.balanceScope")}</p>
       </div>
       <div className="no-print flex flex-wrap gap-2">
         {reports.map((r) => (
@@ -505,6 +534,8 @@ export function ReportsPage() {
               rows={cylMoveRows}
               searchKeys={["party", "cylinder", "from", "to"]}
               dateKey="date"
+              dateRange={range}
+              onDateRangeChange={setRange}
               columns={[
                 {
                   key: "date",

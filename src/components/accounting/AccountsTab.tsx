@@ -166,6 +166,7 @@ export function AccountsTab() {
         rows={accounts}
         searchKeys={["name", "bankName", "accountNo"]}
         dateKey="createdAt"
+        defaultDatePreset="all"
         columns={[
           {
             key: "name",

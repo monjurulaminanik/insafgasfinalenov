@@ -7,9 +7,9 @@ import type {
   Supplier,
   SupplierReturn,
   Voucher,
-} from "@/types";
-import { parseRecordTime, type DateRange } from "@/lib/date-range";
-import { customerOpeningSigned } from "@/lib/customer-balance";
+} from "../types/index.ts";
+import { parseRecordTime, toDateInputValue, type DateRange } from "./date-range.ts";
+import { customerOpeningSigned } from "./customer-balance.ts";
 
 export type PartyKind = "customer" | "supplier" | "employee";
 
@@ -280,8 +280,7 @@ export function monthKeyOf(value: string) {
   if (/^\d{4}-\d{2}$/.test(value)) return value;
   const t = parseRecordTime(value);
   if (t == null) return "";
-  const d = new Date(t);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return toDateInputValue(new Date(t)).slice(0, 7);
 }
 
 export function formatMonthLabel(key: string, locale: string) {
@@ -375,7 +374,8 @@ export function buildPartyStatement(opts: {
   ).sort(sortByDate);
 
   const fromTs = range.preset !== "all" && range.from ? parseRecordTime(range.from) : null;
-  const toTs = range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59`) : null;
+  const toTs =
+    range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59.999`) : null;
 
   const openingSeed =
     kind === "customer" && "openingBalance" in party
@@ -420,9 +420,9 @@ export function buildPartyStatement(opts: {
     lines.push({ ...line, balance: running });
   }
 
-  const totalDebit = lines.reduce((a, l) => a + l.debit, 0);
-  const totalCredit = lines.reduce((a, l) => a + l.credit, 0);
   const activity = lines.filter((l) => l.type !== "opening");
+  const totalDebit = activity.reduce((a, l) => a + l.debit, 0);
+  const totalCredit = activity.reduce((a, l) => a + l.credit, 0);
 
   return {
     partyId: party.id,

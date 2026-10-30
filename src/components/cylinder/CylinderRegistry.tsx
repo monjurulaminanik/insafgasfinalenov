@@ -52,7 +52,7 @@ import {
 import { partyCylinderBalance } from "@/lib/customer-cylinders";
 import { formatCurrency, formatDateTime } from "@/utils/formatters";
 import type { Cylinder, CylinderStatus } from "@/types";
-import { EMPTY_DATE_RANGE, type DateRange } from "@/lib/date-range";
+import { createTodayDateRange, type DateRange } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
 import { useT, type MessageKey } from "@/i18n";
 
@@ -84,7 +84,7 @@ export function CylinderRegistry() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"registry" | "tracking">("tracking");
-  const [range, setRange] = useState<DateRange>(EMPTY_DATE_RANGE);
+  const [range, setRange] = useState<DateRange>(createTodayDateRange);
   const [sizeFilter, setSizeFilter] = useState<string>("all");
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
   const [cardFocus, setCardFocus] = useState<CardFocus | null>(null);
@@ -811,6 +811,7 @@ export function CylinderRegistry() {
           rows={registryRows}
           searchKeys={["serialNumber", "location"]}
           dateKey="lastMovementAt"
+          defaultDatePreset="all"
           onRowClick={(r) => navigate({ to: "/cylinders/$id", params: { id: r.id } })}
           columns={[
             {

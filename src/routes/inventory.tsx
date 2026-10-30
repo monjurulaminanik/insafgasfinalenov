@@ -3,7 +3,7 @@ import { z } from "zod";
 import { InventoryPage } from "@/components/inventory/InventoryPage";
 
 const inventorySearchSchema = z.object({
-  tab: z.enum(["gas", "cylinder", "product", "summary"]).optional().catch("gas"),
+  tab: z.enum(["gas", "cylinder", "product", "summary", "adjustment"]).optional().catch("gas"),
 });
 
 export const Route = createFileRoute("/inventory")({

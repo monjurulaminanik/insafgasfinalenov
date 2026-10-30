@@ -13,7 +13,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Search, ChevronRight, ChevronDown } fr
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n";
 import { DateRangeFilter } from "@/components/common/DateRangeFilter";
-import { EMPTY_DATE_RANGE, filterByDateRange, type DateRange } from "@/lib/date-range";
+import { applyPreset, filterByDateRange, type DatePreset, type DateRange } from "@/lib/date-range";
 
 export interface Column<T> {
   key: string;
@@ -36,6 +36,7 @@ export function DataTable<T extends { id: string }>({
   empty,
   dateKey,
   dateRange,
+  defaultDatePreset = "today",
   onDateRangeChange,
   renderSubComponent,
 }: {
@@ -48,6 +49,8 @@ export function DataTable<T extends { id: string }>({
   dateKey?: DateKey<T>;
   /** Controlled date range (optional — uncontrolled if omitted). */
   dateRange?: DateRange;
+  /** Initial preset for transaction reports; master records stay visible by default. */
+  defaultDatePreset?: DatePreset;
   onDateRangeChange?: (next: DateRange) => void;
   /** Function to render a sub-component when a row is expanded */
   renderSubComponent?: (row: T) => ReactNode;
@@ -56,7 +59,9 @@ export function DataTable<T extends { id: string }>({
   const [q, setQ] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [internalRange, setInternalRange] = useState<DateRange>(EMPTY_DATE_RANGE);
+  const [internalRange, setInternalRange] = useState<DateRange>(() =>
+    applyPreset(defaultDatePreset),
+  );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const emptyLabel = empty ?? t("common.noRecords");
 

@@ -50,6 +50,7 @@ export function DateRangeFilter({
             size="sm"
             variant={value.preset === p ? "default" : "outline"}
             className="h-8 px-2.5 text-xs"
+            aria-pressed={value.preset === p}
             onClick={() => onChange(applyPreset(p, value))}
           >
             {label(p)}

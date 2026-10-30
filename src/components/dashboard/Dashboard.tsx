@@ -19,7 +19,12 @@ import {
   Warehouse,
 } from "lucide-react";
 import { useT } from "@/i18n";
-import { EMPTY_DATE_RANGE, filterByDateRange, type DateRange } from "@/lib/date-range";
+import {
+  REPORT_TIME_ZONE,
+  createTodayDateRange,
+  filterByDateRange,
+  type DateRange,
+} from "@/lib/date-range";
 import { getCylinderAccountabilityFn, type CylinderSnapshot } from "@/lib/cylinder.functions";
 import { cn } from "@/lib/utils";
 
@@ -27,10 +32,11 @@ export function Dashboard() {
   const t = useT();
   const { user } = useRouteContext({ from: "__root__" });
   const [today, setToday] = useState<string>("");
-  const [range, setRange] = useState<DateRange>(EMPTY_DATE_RANGE);
+  const [range, setRange] = useState<DateRange>(createTodayDateRange);
   useEffect(() => {
     setToday(
       new Date().toLocaleDateString("en-GB", {
+        timeZone: REPORT_TIME_ZONE,
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -98,6 +104,7 @@ export function Dashboard() {
       </div>
       <div data-reveal className="rounded-xl border bg-card/60 p-3 backdrop-blur-sm">
         <DateRangeFilter value={range} onChange={setRange} />
+        <p className="mt-2 text-xs text-muted-foreground">{t("reports.balanceScope")}</p>
       </div>
 
       <FinancialAnalytics range={range} />

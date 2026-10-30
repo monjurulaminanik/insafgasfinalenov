@@ -6,14 +6,10 @@ import { toast } from "sonner";
 import { hrService } from "@/services/hr.service";
 import { employeeSchema } from "@/utils/validators";
 import { PageHeader } from "@/components/common/PageHeader";
-import { DataTable } from "@/components/common/DataTable";
-import { RowActions, actionsColumnClass } from "@/components/common/RowActions";
-import { PartyNameLink } from "@/components/common/PartyNameLink";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -22,12 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency, formatDate } from "@/utils/formatters";
-import type { Employee, PayrollRun } from "@/types";
+import type { Employee } from "@/types";
 import { z } from "zod";
 import { useT } from "@/i18n";
-import { Printer, Trash2, Upload, User } from "lucide-react";
-import { PayslipPrint } from "./PayslipPrint";
+import { Trash2, Upload, User } from "lucide-react";
+import { MonthlyPayroll } from "./MonthlyPayroll";
 import { EmployeeRoster } from "@/components/hr/EmployeeRoster";
 import { DELIVERY_MAN, DESIGNATION_PRESETS } from "@/lib/hr-staff";
 import { fileToProfileImage } from "@/lib/image-upload";
@@ -41,40 +36,9 @@ export function HrPage() {
     queryKey: ["employees"],
     queryFn: hrService.listEmployees,
   });
-  const { data: payroll = [] } = useQuery({
-    queryKey: ["payroll"],
-    queryFn: hrService.listPayroll,
-  });
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [status, setStatus] = useState<"active" | "inactive">("active");
-  const [payEmpId, setPayEmpId] = useState("");
-  const [basic, setBasic] = useState("0");
-  const [bonus, setBonus] = useState("0");
-  const [allowance, setAllowance] = useState("0");
-  const [deduction, setDeduction] = useState("0");
-  const [editingPayId, setEditingPayId] = useState<string | null>(null);
-  const [printRun, setPrintRun] = useState<PayrollRun | null>(null);
-  const [printOpen, setPrintOpen] = useState(false);
-
-  const startEditPay = (run: PayrollRun) => {
-    setEditingPayId(run.id);
-    setPayEmpId(run.employeeId);
-    setBasic(run.basic.toString());
-    setBonus(run.bonus.toString());
-    setAllowance(run.allowance.toString());
-    setDeduction(run.deduction.toString());
-  };
-
-  const cancelEditPay = () => {
-    setEditingPayId(null);
-    setPayEmpId("");
-    setBasic("0");
-    setBonus("0");
-    setAllowance("0");
-    setDeduction("0");
-  };
-
   const {
     register,
     handleSubmit,
@@ -155,58 +119,6 @@ export function HrPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const savePay = useMutation({
-    mutationFn: async () => {
-      const emp = employees.find((e) => e.id === payEmpId);
-      if (!emp) throw new Error(t("common.select"));
-
-      const payload = {
-        basic: Number(basic) || emp.salary,
-        bonus: Number(bonus) || 0,
-        allowance: Number(allowance) || 0,
-        deduction: Number(deduction) || 0,
-      };
-
-      if (editingPayId) {
-        return hrService.updatePayroll(editingPayId, payload);
-      } else {
-        const month = new Date().toISOString().slice(0, 7);
-        return hrService.createPayroll({
-          ...payload,
-          employeeId: emp.id,
-          employeeName: emp.name,
-          month,
-        });
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["payroll"] });
-      toast.success(editingPayId ? "Payslip updated" : t("hr.payslipCreated"));
-      cancelEditPay();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const payRun = useMutation({
-    mutationFn: (id: string) => hrService.payPayroll(id, "bank"),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["payroll"] });
-      qc.invalidateQueries({ queryKey: ["ledger"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      toast.success(t("hr.salaryPaid"));
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const removePay = useMutation({
-    mutationFn: (id: string) => hrService.removePayroll(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["payroll"] });
-      toast.success(t("hr.payslipDeleted"));
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   return (
     <div className="space-y-4">
       <PageHeader
@@ -265,8 +177,10 @@ export function HrPage() {
                           try {
                             const dataUrl = await fileToProfileImage(file);
                             setValue("image", dataUrl, { shouldValidate: true });
-                          } catch (err: any) {
-                            toast.error(err.message || "Failed to process image");
+                          } catch (err: unknown) {
+                            toast.error(
+                              err instanceof Error ? err.message : "ছবি প্রক্রিয়া করা যায়নি",
+                            );
                           }
                         }}
                       />
@@ -380,173 +294,9 @@ export function HrPage() {
           <EmployeeRoster />
         </TabsContent>
         <TabsContent value="payroll" className="space-y-4">
-          <Card>
-            <CardContent className="grid gap-3 pt-6 md:grid-cols-6">
-              <div className="space-y-1.5 md:col-span-2">
-                <Label>{t("hr.employee")}</Label>
-                <select
-                  className="flex h-9 w-full rounded-md border bg-background px-3 text-sm"
-                  value={payEmpId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setPayEmpId(id);
-                    const emp = employees.find((x) => x.id === id);
-                    if (emp && !editingPayId) setBasic(String(emp.salary ?? 0));
-                  }}
-                >
-                  <option value="">{t("common.select")}</option>
-                  {employees
-                    .filter((e) => e.status === "active")
-                    .map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t("hr.basicSalary")}</Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={basic}
-                  onChange={(e) => setBasic(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t("hr.bonus")}</Label>
-                <Input type="number" value={bonus} onChange={(e) => setBonus(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t("hr.allowance")}</Label>
-                <Input
-                  type="number"
-                  value={allowance}
-                  onChange={(e) => setAllowance(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>{t("hr.deduction")}</Label>
-                <Input
-                  type="number"
-                  value={deduction}
-                  onChange={(e) => setDeduction(e.target.value)}
-                />
-              </div>
-              <div className="md:col-span-6 flex justify-end gap-2">
-                {editingPayId && (
-                  <Button variant="ghost" onClick={cancelEditPay}>
-                    {t("common.cancel")}
-                  </Button>
-                )}
-                <Button disabled={!payEmpId || savePay.isPending} onClick={() => savePay.mutate()}>
-                  {editingPayId ? t("common.save") : t("hr.createPayslip")}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          <DataTable<PayrollRun>
-            rows={payroll}
-            searchKeys={["employeeName", "month"]}
-            dateKey={(r) => r.paidAt ?? `${r.month}-01`}
-            columns={[
-              {
-                key: "month",
-                header: t("hr.month"),
-                sortable: true,
-                sortValue: (r) => r.month,
-                render: (r) => r.month,
-              },
-              {
-                key: "name",
-                header: t("hr.employee"),
-                sortable: true,
-                sortValue: (r) => r.employeeName,
-                render: (r) => (
-                  <PartyNameLink kind="employee" id={r.employeeId} name={r.employeeName} />
-                ),
-              },
-              {
-                key: "basic",
-                header: t("hr.basicSalary"),
-                sortable: true,
-                sortValue: (r) => r.basic,
-                render: (r) => formatCurrency(r.basic),
-                className: "text-right",
-              },
-              {
-                key: "net",
-                header: t("hr.net"),
-                sortable: true,
-                sortValue: (r) => r.net,
-                render: (r) => formatCurrency(r.net),
-                className: "text-right",
-              },
-              {
-                key: "st",
-                header: t("common.status"),
-                render: (r) => (
-                  <Badge variant={r.status === "paid" ? "default" : "secondary"}>
-                    {t(`status.${r.status}` as any)}
-                  </Badge>
-                ),
-              },
-              {
-                key: "actions",
-                header: t("common.actions"),
-                className: actionsColumnClass,
-                render: (r) => (
-                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    {r.status === "draft" ? (
-                      <>
-                        <Button
-                          size="sm"
-                          disabled={payRun.isPending}
-                          onClick={() => payRun.mutate(r.id)}
-                        >
-                          {t("hr.pay")}
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => startEditPay(r)}>
-                          {t("common.edit")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive"
-                          disabled={removePay.isPending}
-                          onClick={() => {
-                            if (confirm(t("hr.payslipDeleteConfirm"))) removePay.mutate(r.id);
-                          }}
-                        >
-                          {t("common.delete")}
-                        </Button>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground px-2">
-                        {r.paidAt ? formatDate(r.paidAt) : "—"}
-                      </span>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setPrintRun(r);
-                        setPrintOpen(true);
-                      }}
-                      className="ml-2"
-                    >
-                      <Printer className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-          />
+          <MonthlyPayroll employees={employees} />
         </TabsContent>
       </Tabs>
-
-      <PayslipPrint run={printRun} open={printOpen} onOpenChange={setPrintOpen} />
     </div>
   );
 }

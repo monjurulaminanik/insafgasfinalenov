@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { accountingService } from "@/services/accounting.service";
 import { journalEntrySchema } from "@/utils/validators";
 import { toDateInputValue } from "@/lib/date-range";
+import { validateAccountingJournal } from "@/lib/accounting-validation";
 import { formatCurrency } from "@/utils/formatters";
 import type { JournalLine } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -25,10 +26,11 @@ type DraftLine = {
   debit: string;
   credit: string;
   notes: string;
+  assetId: string;
 };
 
 function newLine(): DraftLine {
-  return { key: crypto.randomUUID(), accountId: "", debit: "", credit: "", notes: "" };
+  return { key: crypto.randomUUID(), accountId: "", debit: "", credit: "", notes: "", assetId: "" };
 }
 
 type AccountOpt = { id: string; name: string; label: string };
@@ -40,6 +42,10 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: accountingService.listAccounts,
+  });
+  const { data: assets = [] } = useQuery({
+    queryKey: ["assets"],
+    queryFn: accountingService.listAssets,
   });
   const opts = useMemo<AccountOpt[]>(() => {
     const core: AccountOpt[] = [
@@ -59,6 +65,7 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
 
   const [date, setDate] = useState(toDateInputValue());
   const [notes, setNotes] = useState("");
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [lines, setLines] = useState<DraftLine[]>([newLine(), newLine()]);
 
   const totals = useMemo(() => {
@@ -79,7 +86,7 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
   };
 
   const post = useMutation({
-    mutationFn: (payload: { date: string; notes?: string; lines: JournalLine[] }) =>
+    mutationFn: (payload: { date: string; notes?: string; lines: JournalLine[]; requestId: string }) =>
       accountingService.postJournal(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["vouchers"] });
@@ -87,6 +94,7 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       toast.success(t("accounting.journalPosted"));
       setNotes("");
+      setRequestId(crypto.randomUUID());
       setDate(toDateInputValue());
       setLines([newLine(), newLine()]);
       onPosted?.();
@@ -95,6 +103,18 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
   });
 
   const submit = () => {
+    if (
+      lines.some(
+        (l) =>
+          l.assetId &&
+          (["cash", "bank", "cheque", "mobile"].includes(l.accountId) ||
+            accounts.some((a) => a.id === l.accountId) ||
+            coa.some((a) => a.id === l.accountId && a.type !== "Asset")),
+      )
+    ) {
+      toast.error("সম্পদ সংযোগ শুধু সম্পদ হিসাবের লাইনে দিন");
+      return;
+    }
     const mapped: JournalLine[] = lines.map((l) => {
       const opt = opts.find((o) => o.id === l.accountId);
       return {
@@ -102,7 +122,9 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
         accountName: opt?.name || l.accountId,
         debit: Number(l.debit) || 0,
         credit: Number(l.credit) || 0,
-        notes: l.notes.trim() || undefined,
+        notes:
+          [l.notes.trim(), l.assetId ? `[asset:${l.assetId}]` : ""].filter(Boolean).join(" ") ||
+          undefined,
       };
     });
     const parsed = journalEntrySchema.safeParse({
@@ -114,7 +136,11 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
       toast.error(parsed.error.issues[0]?.message || t("accounting.unbalanced"));
       return;
     }
-    post.mutate(parsed.data);
+    if (!validateAccountingJournal(mapped)) {
+      toast.error(t("accounting.unbalanced"));
+      return;
+    }
+    post.mutate({ ...parsed.data, requestId });
   };
 
   return (
@@ -161,6 +187,22 @@ export function JournalEntryForm({ onPosted }: { onPosted?: () => void }) {
                       {opts.map((o) => (
                         <SelectItem key={o.id} value={o.id}>
                           {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={line.assetId || "none"}
+                    onValueChange={(v) => patch(line.key, { assetId: v === "none" ? "" : v })}
+                  >
+                    <SelectTrigger className="mt-1" aria-label="সংশ্লিষ্ট স্থায়ী সম্পদ">
+                      <SelectValue placeholder="স্থায়ী সম্পদের হিসাব হলে সম্পদ নির্বাচন করুন" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">স্থায়ী সম্পদ প্রযোজ্য নয়</SelectItem>
+                      {assets.map((asset) => (
+                        <SelectItem key={asset.id} value={asset.id}>
+                          {asset.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -141,6 +141,7 @@ export function CategoryList() {
         rows={data}
         searchKeys={["name"]}
         dateKey="createdAt"
+        defaultDatePreset="all"
         columns={[
           {
             key: "name",

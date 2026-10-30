@@ -238,6 +238,13 @@ export function AppSidebar() {
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={pathname === "/inventory" && searchTab === "adjustment"} size="sm">
+                            <Link to="/inventory" search={{ tab: "adjustment" }}>
+                              <span>{t("inventory.adjust")}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
                       </SidebarMenuSub>
                     )}
                     {item.url === "/cylinders" && canAccessUrl("/cylinders/damage") && (

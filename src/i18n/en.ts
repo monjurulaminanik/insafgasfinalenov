@@ -878,6 +878,8 @@ export const en = {
   "hr.removePhoto": "Remove Photo",
   "hr.statement": "Statement",
 
+  "reports.balanceScope": "Dates filter period activity only. Current balances, stock and outstanding items include all history.",
+  "reports.periodActivity": "Period movements",
   "reports.title": "Reports",
   "reports.desc": "Operational and financial reports from live data.",
   "reports.sales": "Sales Report",

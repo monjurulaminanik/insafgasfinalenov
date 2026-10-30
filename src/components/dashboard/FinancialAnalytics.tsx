@@ -10,7 +10,12 @@ import { accountingService } from "@/services/accounting.service";
 import { hrService } from "@/services/hr.service";
 import { FinancialSummaryCards } from "./widgets/FinancialSummaryCards";
 import { RevenueOverviewChart, type MonthlyDataPoint } from "./widgets/RevenueOverviewChart";
-import { filterByDateRange, parseRecordTime, type DateRange } from "@/lib/date-range";
+import {
+  filterByDateRange,
+  parseRecordTime,
+  toDateInputValue,
+  type DateRange,
+} from "@/lib/date-range";
 import {
   computeProfitAndLoss,
   isPostedPurchaseStatus,
@@ -86,19 +91,14 @@ export function FinancialAnalytics({ range }: { range: DateRange }) {
     const validSalesInRange = filterByDateRange(sales, range, (r) => r.date).filter((s) =>
       isPostedSalesStatus(s.status),
     );
-    const grossSales = roundMoney(
-      validSalesInRange.reduce((acc, s) => acc + (s.total || 0), 0),
-    );
+    const grossSales = roundMoney(validSalesInRange.reduce((acc, s) => acc + (s.total || 0), 0));
     const salesRevenue = roundMoney(
-      validSalesInRange.reduce(
-        (acc, s) => acc + (s.subtotal || (s.total || 0) - (s.tax || 0)),
-        0,
-      ),
+      validSalesInRange.reduce((acc, s) => acc + (s.subtotal || (s.total || 0) - (s.tax || 0)), 0),
     );
 
     // 1.2 Total Purchases (Posted POs minus non-cancelled supplier returns)
-    const validPurchasesInRange = filterByDateRange(purchases, range, (r) => r.date).filter(
-      (p) => isPostedPurchaseStatus(p.status),
+    const validPurchasesInRange = filterByDateRange(purchases, range, (r) => r.date).filter((p) =>
+      isPostedPurchaseStatus(p.status),
     );
     const purchasesGross = roundMoney(
       validPurchasesInRange.reduce((acc, p) => acc + (p.total || 0), 0),
@@ -127,12 +127,15 @@ export function FinancialAnalytics({ range }: { range: DateRange }) {
     const validSalaryVouchersInRange = filterByDateRange(vouchers, range, (r) => r.date).filter(
       (v) =>
         v.type === "payment" &&
-        (v.refType === "payroll" || (v.partyType === "employee" && /salary|payroll/i.test(v.notes || ""))),
+        (v.refType === "payroll" ||
+          (v.partyType === "employee" && /salary|payroll/i.test(v.notes || ""))),
     );
     const validJvsInRange = filterByDateRange(vouchers, range, (r) => r.date).filter(
       (v) =>
         v.type === "journal" &&
-        v.lines?.some((l) => l.debit > 0 && /expense|salary|rent|utility|fuel/i.test(l.accountName)),
+        v.lines?.some(
+          (l) => l.debit > 0 && /expense|salary|rent|utility|fuel/i.test(l.accountName),
+        ),
     );
     const expensesCount =
       validExpensesInRange.length + validSalaryVouchersInRange.length + validJvsInRange.length;
@@ -153,99 +156,73 @@ export function FinancialAnalytics({ range }: { range: DateRange }) {
     };
   }, [sales, purchases, supplierReturns, expenses, stockMovements, vouchers, payroll, range]);
 
-  // 2. SIX-MONTH MONTHLY DATA FOR REVENUE OVERVIEW CHART
+  // Monthly chart uses the same transaction period as the summary cards.
   const monthlyChartData = useMemo<MonthlyDataPoint[]>(() => {
-    // Determine the anchor end date (either from range.to or current date)
-    const anchor = range.to ? new Date(range.to) : new Date();
-    const anchorYear = anchor.getFullYear();
-    const anchorMonth = anchor.getMonth();
+    const anchor = new Date((range.to || toDateInputValue()) + "T00:00:00Z");
+    const anchorYear = anchor.getUTCFullYear();
+    const anchorMonth = anchor.getUTCMonth();
+    const first = range.preset !== "all" && range.from ? new Date(range.from + "T00:00:00Z") : null;
+    const monthCount = first
+      ? Math.max(
+          1,
+          (anchorYear - first.getUTCFullYear()) * 12 + anchorMonth - first.getUTCMonth() + 1,
+        )
+      : 6;
+    const monthOf = (value: string) => {
+      const time = parseRecordTime(value);
+      return time == null ? "" : toDateInputValue(new Date(time)).slice(0, 7);
+    };
+    const periodSales = filterByDateRange(sales, range, (r) => r.date);
+    const periodPurchases = filterByDateRange(purchases, range, (r) => r.date);
+    const periodReturns = filterByDateRange(supplierReturns, range, (r) => r.date);
+    const periodExpenses = filterByDateRange(expenses, range, (r) => r.date);
 
     const points: MonthlyDataPoint[] = [];
 
-    // Generate recent 6 months
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(anchorYear, anchorMonth - i, 1);
-      const year = d.getFullYear();
-      const monthNum = String(d.getMonth() + 1).padStart(2, "0");
+    // All-time view retains six months of chart context; bounded ranges show their months.
+    for (let i = monthCount - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(anchorYear, anchorMonth - i, 1));
+      const year = d.getUTCFullYear();
+      const monthNum = String(d.getUTCMonth() + 1).padStart(2, "0");
       const monthKey = `${year}-${monthNum}`;
-      const monthLabel = d.toLocaleDateString("en-GB", { month: "short" });
+      const monthLabel = d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
 
       // Sales for monthKey
-      const mSales = sales.filter(
-        (s) => isPostedSalesStatus(s.status) && (s.date || "").startsWith(monthKey),
+      const mSales = periodSales.filter(
+        (s) => isPostedSalesStatus(s.status) && monthOf(s.date || "") === monthKey,
       );
       const mSalesTotal = mSales.reduce((acc, s) => acc + (s.total || 0), 0);
-      const mSalesRevenue = mSales.reduce(
-        (acc, s) => acc + (s.subtotal || (s.total || 0) - (s.tax || 0)),
-        0,
-      );
 
       // Purchases for monthKey
-      const mPurchases = purchases.filter(
-        (p) => isPostedPurchaseStatus(p.status) && (p.date || "").startsWith(monthKey),
+      const mPurchases = periodPurchases.filter(
+        (p) => isPostedPurchaseStatus(p.status) && monthOf(p.date || "") === monthKey,
       );
       const mPurchasesGross = mPurchases.reduce((acc, p) => acc + (p.total || 0), 0);
-      const mReturns = supplierReturns.filter(
-        (r) => r.status !== "cancelled" && (r.date || "").startsWith(monthKey),
+      const mReturns = periodReturns.filter(
+        (r) => r.status !== "cancelled" && monthOf(r.date || "") === monthKey,
       );
       const mReturnsTotal = mReturns.reduce((acc, r) => acc + (r.total || 0), 0);
       const mPurchasesNet = Math.max(0, mPurchasesGross - mReturnsTotal);
 
       // Expenses for monthKey
-      const mExpenses = expenses.filter((e) => (e.date || "").startsWith(monthKey));
-      const mExpDirect = mExpenses.reduce((acc, e) => acc + (e.amount || 0), 0);
-      let mExpJv = 0;
-      for (const v of vouchers) {
-        if (v.type === "journal" && v.lines && (v.date || "").startsWith(monthKey)) {
-          for (const line of v.lines) {
-            if (line.debit > 0 && /expense|salary|rent|utility|fuel/i.test(line.accountName)) {
-              mExpJv += line.debit;
-            }
-          }
-        }
-      }
-      let mExpSalary = 0;
-      const mProcessedPayrollIds = new Set<string>();
-      for (const v of vouchers) {
-        if (
-          v.type === "payment" &&
-          (v.refType === "payroll" || (v.partyType === "employee" && /salary|payroll/i.test(v.notes || ""))) &&
-          (v.date || "").startsWith(monthKey)
-        ) {
-          if (v.refId) mProcessedPayrollIds.add(v.refId);
-          mExpSalary += Number(v.amount || 0);
-        }
-      }
-      for (const run of payroll) {
-        if (run.status === "paid" && (run.net || 0) > 0) {
-          if (mProcessedPayrollIds.has(run.id)) continue;
-          const runDate = run.paidAt || run.createdAt || `${run.month}-01`;
-          if (!runDate.startsWith(monthKey)) continue;
-          if (run.month === "2026-09" && mExpJv > 0) continue;
-          mProcessedPayrollIds.add(run.id);
-          mExpSalary += Number(run.net || 0);
-        }
-      }
-      const mTotalExpenses = mExpDirect + mExpJv + mExpSalary;
-
-      // COGS for monthKey
-      const mStockOut = stockMovements.filter(
-        (sm) =>
-          (sm.type === "out" ||
-            sm.movementType === "SALE_ISSUE" ||
-            sm.movementType === "DAMAGE" ||
-            sm.movementType === "LOSS") &&
-          (sm.date || "").startsWith(monthKey),
-      );
-      const mCogs = mStockOut.reduce(
-        (acc, sm) =>
-          acc +
-          (sm.cogsAmount || sm.totalCost || (sm.unitCost || 0) * sm.quantity),
-        0,
-      );
-
-      // Net Profit for monthKey
-      const mNetProfit = roundMoney(mSalesRevenue - mCogs - mTotalExpenses);
+      const mExpenses = periodExpenses.filter((e) => monthOf(e.date || "") === monthKey);
+      const monthStart = monthKey + "-01";
+      const monthEnd = new Date(Date.UTC(year, d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+      const monthRange: DateRange = {
+        preset: "custom",
+        from: range.preset !== "all" && range.from > monthStart ? range.from : monthStart,
+        to: range.preset !== "all" && range.to && range.to < monthEnd ? range.to : monthEnd,
+      };
+      const monthlyPnl = computeProfitAndLoss({
+        sales: mSales,
+        stockMovements,
+        expenses: mExpenses,
+        vouchers,
+        payroll,
+        range: monthRange,
+      });
+      const mTotalExpenses = monthlyPnl.totalExpenses;
+      const mNetProfit = monthlyPnl.netProfit;
 
       points.push({
         month: monthLabel,
@@ -258,7 +235,7 @@ export function FinancialAnalytics({ range }: { range: DateRange }) {
     }
 
     return points;
-  }, [sales, purchases, supplierReturns, expenses, stockMovements, vouchers, payroll, range.to]);
+  }, [sales, purchases, supplierReturns, expenses, stockMovements, vouchers, payroll, range]);
 
   if (!canView) return null;
 

@@ -434,6 +434,13 @@ export interface BusinessAsset {
   currentValue: number;
   notes?: string;
   createdAt: string;
+  acquisition?: "paid" | "opening" | "credit";
+  accountingStatus?: "posted";
+  accountingDate?: string;
+  acquisitionVoucherId?: string;
+  paymentAccount?: string;
+  lastDepreciationDate?: string;
+  revision?: number;
 }
 
 export interface Expense {
@@ -529,6 +536,11 @@ export interface PayrollRun {
   status: "draft" | "paid";
   paidAt?: string;
   paymentMethod?: PaymentMethod;
+  /** Net salary remains earned salary; recovery is an asset settlement, not a deduction. */
+  advanceSettlements?: { advanceId: string; amount: number }[];
+  advanceRecovered?: number;
+  cashPaid?: number;
+  paymentRequestId?: string;
   createdAt: string;
 }
 

@@ -1,3 +1,5 @@
+import { parseRecordTime, REPORT_TIME_ZONE } from "../lib/date-range.ts";
+
 const BDT = "৳";
 export const formatCurrency = (n: number) =>
   `${BDT}${new Intl.NumberFormat("en-BD", { maximumFractionDigits: 0 }).format(Math.round(n || 0))}`;
@@ -5,10 +7,16 @@ export const formatCurrency = (n: number) =>
 export const formatNumber = (n: number) => new Intl.NumberFormat("en-BD").format(n);
 
 export const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  new Date(parseRecordTime(iso) ?? NaN).toLocaleDateString("en-GB", {
+    timeZone: REPORT_TIME_ZONE,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
 export const formatDateTime = (iso: string) =>
-  new Date(iso).toLocaleString("en-GB", {
+  new Date(parseRecordTime(iso) ?? NaN).toLocaleString("en-GB", {
+    timeZone: REPORT_TIME_ZONE,
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -18,10 +26,11 @@ export const formatDateTime = (iso: string) =>
 
 export const formatOpenedOn = (iso: string) => {
   if (!iso) return "—";
-  const d = new Date(iso);
+  const d = new Date(parseRecordTime(iso) ?? NaN);
   if (Number.isNaN(d.getTime())) return "—";
   return d
     .toLocaleString("en-GB", {
+      timeZone: REPORT_TIME_ZONE,
       day: "numeric",
       month: "short",
       year: "numeric",

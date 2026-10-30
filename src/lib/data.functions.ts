@@ -261,6 +261,7 @@ async function collCreate<T extends { id?: string }>(
     id,
     createdAt: data.createdAt ?? new Date().toISOString(),
   };
+  if (name === "products") doc.openingStock = data.openingStock ?? (Number(data.stock) || 0);
 
   // Database-backed collision-safe sequence numbering
   if (name === "sales" && (!doc.orderNo || String(doc.orderNo).startsWith("SO-"))) {
@@ -760,6 +761,27 @@ export const crudFn = createServerFn({ method: "POST" })
     assertPermission(user, requiredPermission);
 
     const id = data.id != null ? String(data.id) : undefined;
+    const { assertFinancialCrudWrite } = await import("./financial-write-guards");
+    const existingFinancial = id && (data.coll === "vouchers" || data.coll === "ledger") && data.op !== "get" && data.op !== "list"
+      ? await findById(data.coll, id) : undefined;
+    assertFinancialCrudWrite(data.coll, data.op, data.payload, existingFinancial);
+    if (data.coll === "employees" && data.op === "remove") {
+      const { getMongoClient } = await import("./mongo.server");
+      const db = await getDb();
+      const session = (await getMongoClient()).startSession();
+      try {
+        return await session.withTransaction(async () => {
+          const employee = await db.collection("employees").findOneAndUpdate({ id }, { $inc: { payrollRevision: 1 } }, { session, returnDocument: "after" });
+          if (!employee) throw new Error("কর্মী পাওয়া যায়নি");
+          const payroll = await db.collection("payroll").findOne({ employeeId: id }, { session });
+          const advance = await db.collection("salaryAdvances").findOne({ employeeId: id }, { session });
+          if (payroll || advance) throw new Error("বেতন বা অগ্রিমের ইতিহাস থাকা কর্মী মুছবেন না; inactive করুন");
+          await db.collection("employees").deleteOne({ id }, { session });
+          await db.collection("auditLogs").insertOne({ id: crypto.randomUUID(), userId: user.username, username: user.username, action: "DELETE", entityType: "employees", entityId: id, before: clean(employee), after: null, timestamp: new Date().toISOString() }, { session });
+          return { ok: true };
+        });
+      } finally { await session.endSession(); }
+    }
     switch (data.op) {
       case "list":
         return await collAll(data.coll);

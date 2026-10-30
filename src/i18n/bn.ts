@@ -889,6 +889,8 @@ export const bn = {
   "hr.statement": "স্টেটমেন্ট",
 
   // Reports
+  "reports.balanceScope": "তারিখ শুধু নির্বাচিত সময়ের লেনদেনে প্রযোজ্য। বর্তমান ব্যালান্স, স্টক ও বকেয়ায় সব সময়ের হিসাব অন্তর্ভুক্ত।",
+  "reports.periodActivity": "নির্বাচিত সময়ের চলাচল",
   "reports.title": "রিপোর্টস",
   "reports.desc": "লাইভ ডেটা থেকে অপারেশনাল ও আর্থিক রিপোর্ট।",
   "reports.sales": "সেলস রিপোর্ট",

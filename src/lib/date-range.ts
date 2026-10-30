@@ -8,39 +8,48 @@ export type DateRange = {
 
 export const EMPTY_DATE_RANGE: DateRange = { preset: "all", from: "", to: "" };
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
+/** Business calendar shared by SSR and browsers, independent of host timezone. */
+export const REPORT_TIME_ZONE = "Asia/Dhaka";
+const businessDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: REPORT_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function createTodayDateRange(now = new Date()): DateRange {
+  return { preset: "today", ...rangeForPreset("today", now) };
 }
 
-/** Local calendar date as YYYY-MM-DD */
+/** Dhaka calendar date as YYYY-MM-DD. */
 export function toDateInputValue(d = new Date()): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parts = businessDateFormatter.formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 function startOfDay(isoDate: string): number {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  return Date.parse(`${isoDate}T00:00:00.000+06:00`);
 }
 
 function endOfDay(isoDate: string): number {
-  const [y, m, d] = isoDate.split("-").map(Number);
-  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+  return Date.parse(`${isoDate}T23:59:59.999+06:00`);
 }
 
 export function rangeForPreset(
   preset: Exclude<DatePreset, "custom" | "all">,
+  now = new Date(),
 ): Pick<DateRange, "from" | "to"> {
-  const now = new Date();
   const to = toDateInputValue(now);
   if (preset === "today") return { from: to, to };
   if (preset === "week") {
-    const from = new Date(now);
-    from.setDate(from.getDate() - 6);
-    return { from: toDateInputValue(from), to };
+    // Calendar arithmetic must not inherit the host timezone or DST.
+    const from = new Date(`${to}T00:00:00Z`);
+    from.setUTCDate(from.getUTCDate() - 6);
+    return { from: from.toISOString().slice(0, 10), to };
   }
   // month
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  return { from: toDateInputValue(from), to };
+  return { from: `${to.slice(0, 7)}-01`, to };
 }
 
 export function applyPreset(preset: DatePreset, current?: DateRange): DateRange {
@@ -68,13 +77,16 @@ export function parseRecordTime(value: string | number | Date | null | undefined
   const s = String(value).trim();
   // YYYY-MM payroll month → first day of month
   if (/^\d{4}-\d{2}$/.test(s)) {
-    const [y, m] = s.split("-").map(Number);
-    return new Date(y, m - 1, 1).getTime();
+    return startOfDay(`${s}-01`);
   }
   // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return startOfDay(s);
 
-  const t = Date.parse(s);
+  // Legacy timestamps without an offset are business wall-clock times.
+  const timestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(s)
+    ? `${s}+06:00`
+    : s;
+  const t = Date.parse(timestamp);
   return Number.isNaN(t) ? null : t;
 }
 

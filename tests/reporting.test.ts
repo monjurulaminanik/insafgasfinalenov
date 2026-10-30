@@ -465,6 +465,10 @@ describe("Phase 3 Payroll, Cash Flow, Reporting, Date Filters & Dashboard Integr
       },
     ];
 
+    // Opening assets 130000 less supplier liability 30000 = recorded equity 100000.
+    ledger.push({ id: "opening-equity", date: "2026-01-01", account: "Owner Capital",
+      direction: "out", amount: 100000, category: "journal" });
+
     const audit = reconcileFinancialIntegrity({
       products: [p],
       costLayers: layers,

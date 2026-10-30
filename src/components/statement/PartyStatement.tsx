@@ -25,7 +25,12 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/utils/formatters";
-import { EMPTY_DATE_RANGE, formatPeriodLabel, type DateRange } from "@/lib/date-range";
+import {
+  EMPTY_DATE_RANGE,
+  createTodayDateRange,
+  formatPeriodLabel,
+  type DateRange,
+} from "@/lib/date-range";
 import {
   buildPartyStatement,
   groupStatementByMonth,
@@ -54,7 +59,7 @@ const LINE_LABEL: Record<StatementLine["type"], MessageKey> = {
 export function PartyStatement({ kind, id }: { kind: PartyKind; id: string }) {
   const t = useT();
   const { locale } = useI18n();
-  const [range, setRange] = useState<DateRange>(EMPTY_DATE_RANGE);
+  const [range, setRange] = useState<DateRange>(createTodayDateRange);
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
   const customerQuery = useQuery({
@@ -115,11 +120,61 @@ export function PartyStatement({ kind, id }: { kind: PartyKind; id: string }) {
     }
     if (kind === "supplier") {
       if (!supplier) return null;
-      return buildPartyStatement({ kind: "supplier", party: supplier, purchases, supplierReturns, vouchers, range });
+      return buildPartyStatement({
+        kind: "supplier",
+        party: supplier,
+        purchases,
+        supplierReturns,
+        vouchers,
+        range,
+      });
     }
     if (!employee) return null;
     return buildPartyStatement({ kind: "employee", party: employee, payroll, vouchers, range });
-  }, [kind, customer, supplier, employee, sales, purchases, supplierReturns, payroll, vouchers, range]);
+  }, [
+    kind,
+    customer,
+    supplier,
+    employee,
+    sales,
+    purchases,
+    supplierReturns,
+    payroll,
+    vouchers,
+    range,
+  ]);
+
+  const currentStatement = useMemo(() => {
+    if (kind === "customer") {
+      if (!customer) return null;
+      return buildPartyStatement({
+        kind: "customer",
+        party: customer,
+        sales,
+        vouchers,
+        range: EMPTY_DATE_RANGE,
+      });
+    }
+    if (kind === "supplier") {
+      if (!supplier) return null;
+      return buildPartyStatement({
+        kind: "supplier",
+        party: supplier,
+        purchases,
+        supplierReturns,
+        vouchers,
+        range: EMPTY_DATE_RANGE,
+      });
+    }
+    if (!employee) return null;
+    return buildPartyStatement({
+      kind: "employee",
+      party: employee,
+      payroll,
+      vouchers,
+      range: EMPTY_DATE_RANGE,
+    });
+  }, [kind, customer, supplier, employee, sales, purchases, supplierReturns, payroll, vouchers]);
 
   const monthGroups = useMemo(
     () => (kind === "employee" && statement ? groupStatementByMonth(statement.lines, locale) : []),
@@ -218,6 +273,12 @@ export function PartyStatement({ kind, id }: { kind: PartyKind; id: string }) {
             <Button variant="outline" onClick={() => window.print()}>
               <Printer className="mr-1 h-4 w-4" /> {t("statement.print")}
             </Button>
+            <SummaryTile
+              label={currentLabel}
+              value={formatCurrency(currentStatement?.closingBalance ?? 0)}
+              emphasize
+            />
+
             {kind !== "employee" && (
               <>
                 <Button
@@ -272,7 +333,7 @@ export function PartyStatement({ kind, id }: { kind: PartyKind; id: string }) {
               value={formatCurrency(statement.totalCredit)}
             />
             <SummaryTile
-              label={`${currentLabel} · ${closingLabel}`}
+              label={`${t("statement.closing")} · ${closingLabel}`}
               value={formatCurrency(Math.abs(statement.closingBalance))}
               emphasize
             />

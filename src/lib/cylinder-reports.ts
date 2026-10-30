@@ -71,7 +71,8 @@ export function buildCylinderMovementLedger(opts: {
   const { cylinders, movements, products, customers, suppliers, range } = opts;
   const cylMap = new Map(cylinders.map((c) => [c.id, c]));
   const fromTs = range.preset !== "all" && range.from ? parseRecordTime(range.from) : null;
-  const toTs = range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59`) : null;
+  const toTs =
+    range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59.999`) : null;
 
   return movements
     .slice()

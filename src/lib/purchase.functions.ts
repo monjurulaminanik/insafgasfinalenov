@@ -120,11 +120,11 @@ async function receivePurchaseInDb(
   if (po.status === "cancelled") {
     throw new Error("Cannot receive a cancelled purchase order.");
   }
-  if (!poCanReceive(po.items, po)) {
-    throw new Error("This purchase order has no remaining quantity to receive.");
-  }
   if (payload?.requestId && (po.grns || []).some((g) => g.id === payload.requestId)) {
     return po;
+  }
+  if (!poCanReceive(po.items, po)) {
+    throw new Error("This purchase order has no remaining quantity to receive.");
   }
 
   const products = (await db.collection("products").find({}, opt).toArray()).map((d: Product) =>
@@ -507,8 +507,8 @@ async function receiveStockInDb(
   // Update separated inventory collection
   if (pType === "gas") {
     const unitPrice = Number(product.price) || 0;
-    const costPrice = cost > 0 ? cost : (Number(product.cost) || 0);
-    const valUnit = costPrice > 0 ? costPrice : unitPrice;
+    const costPrice = nextCost;
+    const valUnit = costPrice;
     await db.collection("gasInventory").updateOne(
       { productId: product.id },
       {
@@ -530,8 +530,8 @@ async function receiveStockInDb(
     const cylDoc = await db.collection("cylinderInventory").findOne({ productId: product.id }, opt);
     const reserved = cylDoc ? Number(cylDoc.reserved) || 0 : 0;
     const unitPrice = Number(product.price) || 0;
-    const costPrice = cost > 0 ? cost : (Number(product.cost) || 0);
-    const valUnit = costPrice > 0 ? costPrice : unitPrice;
+    const costPrice = nextCost;
+    const valUnit = costPrice;
     await db.collection("cylinderInventory").updateOne(
       { productId: product.id },
       {
@@ -559,8 +559,8 @@ async function receiveStockInDb(
     );
   } else {
     const unitPrice = Number(product.price) || 0;
-    const costPrice = cost > 0 ? cost : (Number(product.cost) || 0);
-    const valUnit = costPrice > 0 ? costPrice : unitPrice;
+    const costPrice = nextCost;
+    const valUnit = costPrice;
     await db.collection("productInventory").updateOne(
       { productId: product.id },
       {
@@ -635,7 +635,7 @@ export async function issueStockInDb(
   if (pType === "gas") {
     const unitPrice = Number(product.price) || 0;
     const costPrice = Number(product.cost) || 0;
-    const valUnit = costPrice > 0 ? costPrice : unitPrice;
+    const valUnit = costPrice;
     await db.collection("gasInventory").updateOne(
       { productId: product.id },
       {
@@ -649,7 +649,7 @@ export async function issueStockInDb(
     const reserved = cylDoc ? Number(cylDoc.reserved) || 0 : 0;
     const unitPrice = Number(product.price) || 0;
     const costPrice = Number(product.cost) || 0;
-    const valUnit = costPrice > 0 ? costPrice : unitPrice;
+    const valUnit = costPrice;
     await db.collection("cylinderInventory").updateOne(
       { productId: product.id },
       {
@@ -666,7 +666,7 @@ export async function issueStockInDb(
   } else {
     const unitPrice = Number(product.price) || 0;
     const costPrice = Number(product.cost) || 0;
-    const valUnit = costPrice > 0 ? costPrice : unitPrice;
+    const valUnit = costPrice;
     await db.collection("productInventory").updateOne(
       { productId: product.id },
       {

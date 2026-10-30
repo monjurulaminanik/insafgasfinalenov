@@ -1,4 +1,5 @@
 import type { Employee } from "@/types";
+import { toDateInputValue } from "./date-range";
 
 export const DELIVERY_MAN = "Deliveryman";
 
@@ -19,5 +20,5 @@ export function isDeliveryStaff(e: Pick<Employee, "designation" | "department" |
 }
 
 export function currentMonthKey() {
-  return new Date().toISOString().slice(0, 7);
+  return toDateInputValue().slice(0, 7);
 }

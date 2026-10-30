@@ -39,7 +39,7 @@ function paySnapshot(emp: Employee, payroll: PayrollRun[]) {
   const commission = emp.perDeliveryCommission || 0;
   const bonus = run?.bonus ?? 0;
   const deduction = run?.deduction ?? 0;
-  const net = run ? run.net : Math.max(0, (emp.salary || 0) + commission + bonus - deduction);
+  const net = run ? run.net : Math.max(0, emp.salary || 0);
   const payStatus: "paid" | "pending" = run?.status === "paid" ? "paid" : "pending";
   return { run, commission, bonus, deduction, net, payStatus };
 }
@@ -63,9 +63,6 @@ export function EmployeeRoster() {
   const [role, setRole] = useState("");
   const [salary, setSalary] = useState("0");
   const [commission, setCommission] = useState("0");
-  const [bonus, setBonus] = useState("0");
-  const [deduction, setDeduction] = useState("0");
-  const [payStatus, setPayStatus] = useState<"paid" | "pending">("pending");
 
   const roles = useMemo(
     () =>
@@ -76,16 +73,12 @@ export function EmployeeRoster() {
   );
 
   const startEdit = (row: Employee) => {
-    const snap = paySnapshot(row, payroll);
     setEmp(row);
     setImage(row.image || "");
     setName(row.name);
     setRole(row.designation);
     setSalary(String(row.salary || 0));
     setCommission(String(row.perDeliveryCommission || 0));
-    setBonus(String(snap.bonus));
-    setDeduction(String(snap.deduction));
-    setPayStatus(snap.payStatus);
     setOpen(true);
   };
 
@@ -94,8 +87,6 @@ export function EmployeeRoster() {
       if (!emp) throw new Error(t("hr.notFound"));
       const basic = Number(salary) || 0;
       const comm = Number(commission) || 0;
-      const bon = Number(bonus) || 0;
-      const ded = Number(deduction) || 0;
       await hrService.updateEmployee(emp.id, {
         name: name.trim() || emp.name,
         designation: role || emp.designation,
@@ -103,31 +94,6 @@ export function EmployeeRoster() {
         perDeliveryCommission: comm,
         image: image || undefined,
       });
-      const month = currentMonthKey();
-      const existing = payroll
-        .filter((p) => p.employeeId === emp.id && p.month === month)
-        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0];
-      if (existing?.status === "paid") return;
-      const payload = {
-        basic,
-        bonus: bon,
-        allowance: comm,
-        deduction: ded,
-      };
-      let run = existing;
-      if (run && run.status === "draft") {
-        run = await hrService.updatePayroll(run.id, payload);
-      } else if (!run) {
-        run = await hrService.createPayroll({
-          ...payload,
-          employeeId: emp.id,
-          employeeName: name.trim() || emp.name,
-          month,
-        });
-      }
-      if (payStatus === "paid" && run.status === "draft") {
-        await hrService.payPayroll(run.id, "bank");
-      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["employees"] });
@@ -146,6 +112,7 @@ export function EmployeeRoster() {
         rows={employees}
         searchKeys={["name", "employeeNo", "designation", "department"]}
         dateKey="createdAt"
+        defaultDatePreset="all"
         onRowClick={(r) => navigate({ to: "/hr/$id", params: { id: r.id } })}
         columns={[
           {
@@ -289,8 +256,10 @@ export function EmployeeRoster() {
                         try {
                           const dataUrl = await fileToProfileImage(file);
                           setImage(dataUrl);
-                        } catch (err: any) {
-                          toast.error(err.message || "Failed to process image");
+                        } catch (err: unknown) {
+                          toast.error(
+                            err instanceof Error ? err.message : "ছবি প্রক্রিয়া করা যায়নি",
+                          );
                         }
                       }}
                     />
@@ -331,19 +300,17 @@ export function EmployeeRoster() {
             </div>
             <div className="space-y-1.5">
               <Label>{t("hr.payStatus")}</Label>
-              <Select
-                value={payStatus}
-                onValueChange={(v) => setPayStatus(v as "paid" | "pending")}
-                disabled={emp ? paySnapshot(emp, payroll).payStatus === "paid" : false}
+              <p className="text-sm">বেতন ও অগ্রিম পরিশোধ মাসিক payroll থেকে করুন।</p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setOpen(false);
+                  navigate({ to: "/hr" });
+                }}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">{t("status.pending")}</SelectItem>
-                  <SelectItem value="paid">{t("status.paid")}</SelectItem>
-                </SelectContent>
-              </Select>
+                মাসিক বেতন খুলুন
+              </Button>
             </div>
             <div className="space-y-1.5">
               <Label>{t("hr.basicSalary")}</Label>
@@ -361,26 +328,6 @@ export function EmployeeRoster() {
                 min={0}
                 value={commission}
                 onChange={(e) => setCommission(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t("hr.bonus")}</Label>
-              <Input
-                type="number"
-                min={0}
-                value={bonus}
-                onChange={(e) => setBonus(e.target.value)}
-                disabled={emp ? paySnapshot(emp, payroll).payStatus === "paid" : false}
-              />
-            </div>
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label>{t("hr.deduction")}</Label>
-              <Input
-                type="number"
-                min={0}
-                value={deduction}
-                onChange={(e) => setDeduction(e.target.value)}
-                disabled={emp ? paySnapshot(emp, payroll).payStatus === "paid" : false}
               />
             </div>
           </div>

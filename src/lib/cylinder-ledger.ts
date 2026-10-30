@@ -1,4 +1,11 @@
-import type { Customer, Cylinder, CylinderMovement, Product, StockMovement, Supplier } from "@/types";
+import type {
+  Customer,
+  Cylinder,
+  CylinderMovement,
+  Product,
+  StockMovement,
+  Supplier,
+} from "@/types";
 import { parseRecordTime, type DateRange } from "@/lib/date-range";
 
 export type CylinderHeadKind = "customer" | "supplier" | "warehouse";
@@ -97,10 +104,20 @@ export function buildCylinderLedger(opts: {
   productId?: string;
   stockMovements?: StockMovement[];
 }): CylinderHeadReport[] {
-  const { cylinders, movements, products, customers, suppliers, range, productId, stockMovements = [] } = opts;
+  const {
+    cylinders,
+    movements,
+    products,
+    customers,
+    suppliers,
+    range,
+    productId,
+    stockMovements = [],
+  } = opts;
   const cylMap = new Map(cylinders.map((c) => [c.id, c]));
   const fromTs = range.preset !== "all" && range.from ? parseRecordTime(range.from) : null;
-  const toTs = range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59`) : null;
+  const toTs =
+    range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59.999`) : null;
 
   const buckets = new Map<string, { kind: CylinderHeadKind; name: string; hits: RawHit[] }>();
 
@@ -148,7 +165,10 @@ export function buildCylinderLedger(opts: {
 
   const selectedProduct = productId ? products.find((p) => p.id === productId) : undefined;
   const isNonCylinderProduct =
-    selectedProduct && !isCylinderProduct(selectedProduct) && stockMovements && stockMovements.length > 0;
+    selectedProduct &&
+    !isCylinderProduct(selectedProduct) &&
+    stockMovements &&
+    stockMovements.length > 0;
 
   if (isNonCylinderProduct) {
     // Synchronize Warehouse stock with existing Gas/Product Inventory using authoritative stockMovements
@@ -169,14 +189,37 @@ export function buildCylinderLedger(opts: {
 
       const isReverse = /Reverse/i.test(sm.notes || "");
       if (isReverse) {
-        if ((sm.refType === "sales" || sm.refType === "delivery") && (sm.type === "in" || sm.type === "return")) {
-          push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, sm, -qty, 0, hitDate, selectedProduct.name);
-          if (cust) push(`c:${cust.id}`, "customer", cust.name, sm, -qty, 0, hitDate, selectedProduct.name);
+        if (
+          (sm.refType === "sales" || sm.refType === "delivery") &&
+          (sm.type === "in" || sm.type === "return")
+        ) {
+          push(
+            SINGLE_WAREHOUSE_ID,
+            "warehouse",
+            SINGLE_WAREHOUSE_NAME,
+            sm,
+            -qty,
+            0,
+            hitDate,
+            selectedProduct.name,
+          );
+          if (cust)
+            push(`c:${cust.id}`, "customer", cust.name, sm, -qty, 0, hitDate, selectedProduct.name);
           continue;
         }
         if (sm.refType === "purchase" && sm.type === "out") {
-          push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, sm, 0, -qty, hitDate, selectedProduct.name);
-          if (supp) push(`s:${supp.id}`, "supplier", supp.name, sm, 0, -qty, hitDate, selectedProduct.name);
+          push(
+            SINGLE_WAREHOUSE_ID,
+            "warehouse",
+            SINGLE_WAREHOUSE_NAME,
+            sm,
+            0,
+            -qty,
+            hitDate,
+            selectedProduct.name,
+          );
+          if (supp)
+            push(`s:${supp.id}`, "supplier", supp.name, sm, 0, -qty, hitDate, selectedProduct.name);
           continue;
         }
       }
@@ -201,14 +244,34 @@ export function buildCylinderLedger(opts: {
         sm.movementType === "PURCHASE_RETURN";
 
       if (isIn) {
-        push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, sm, 0, qty, hitDate, selectedProduct.name);
+        push(
+          SINGLE_WAREHOUSE_ID,
+          "warehouse",
+          SINGLE_WAREHOUSE_NAME,
+          sm,
+          0,
+          qty,
+          hitDate,
+          selectedProduct.name,
+        );
         if (sm.type === "return" || sm.movementType === "SALES_RETURN") {
-          if (cust) push(`c:${cust.id}`, "customer", cust.name, sm, 0, qty, hitDate, selectedProduct.name);
+          if (cust)
+            push(`c:${cust.id}`, "customer", cust.name, sm, 0, qty, hitDate, selectedProduct.name);
         }
       } else if (isOut) {
-        push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, sm, qty, 0, hitDate, selectedProduct.name);
+        push(
+          SINGLE_WAREHOUSE_ID,
+          "warehouse",
+          SINGLE_WAREHOUSE_NAME,
+          sm,
+          qty,
+          0,
+          hitDate,
+          selectedProduct.name,
+        );
         if (sm.movementType === "PURCHASE_RETURN") {
-          if (supp) push(`s:${supp.id}`, "supplier", supp.name, sm, qty, 0, hitDate, selectedProduct.name);
+          if (supp)
+            push(`s:${supp.id}`, "supplier", supp.name, sm, qty, 0, hitDate, selectedProduct.name);
         } else if (cust) {
           push(`c:${cust.id}`, "customer", cust.name, sm, qty, 0, hitDate, selectedProduct.name);
         }
@@ -216,13 +279,11 @@ export function buildCylinderLedger(opts: {
     }
   } else {
     // Cylinder tracking movements
-    const sorted = movements
-      .slice()
-      .sort((a, b) => {
-        const ta = a.timestamp || (a as any).date || (a as any).createdAt;
-        const tb = b.timestamp || (b as any).date || (b as any).createdAt;
-        return (parseRecordTime(ta) ?? 0) - (parseRecordTime(tb) ?? 0);
-      });
+    const sorted = movements.slice().sort((a, b) => {
+      const ta = a.timestamp || (a as any).date || (a as any).createdAt;
+      const tb = b.timestamp || (b as any).date || (b as any).createdAt;
+      return (parseRecordTime(ta) ?? 0) - (parseRecordTime(tb) ?? 0);
+    });
 
     for (const m of sorted) {
       const cust =
@@ -235,21 +296,26 @@ export function buildCylinderLedger(opts: {
         matchByName(m.toLocation, suppliers);
       const fromWh = warehouseName(m.fromLocation);
       const toWh = warehouseName(m.toLocation);
-      const hitDate = m.timestamp || (m as any).date || (m as any).createdAt || new Date().toISOString();
+      const hitDate =
+        m.timestamp || (m as any).date || (m as any).createdAt || new Date().toISOString();
 
       if (m.type === "issued") {
         if (cust) push(`c:${cust.id}`, "customer", cust.name, m, 1, 0, hitDate);
-        if (fromWh || !m.fromLocation) push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 1, 0, hitDate);
+        if (fromWh || !m.fromLocation)
+          push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 1, 0, hitDate);
       } else if (m.type === "returned") {
         if (cust) push(`c:${cust.id}`, "customer", cust.name, m, 0, 1, hitDate);
         if (toWh) push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 0, 1, hitDate);
         if (supp) push(`s:${supp.id}`, "supplier", supp.name, m, 1, 0, hitDate);
       } else if (m.type === "received") {
         if (supp) push(`s:${supp.id}`, "supplier", supp.name, m, 0, 1, hitDate);
-        if (toWh || !m.toLocation) push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 0, 1, hitDate);
+        if (toWh || !m.toLocation)
+          push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 0, 1, hitDate);
       } else if (m.type === "refilled" || m.type === "transferred") {
-        if (fromWh && !toWh) push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 1, 0, hitDate);
-        if (toWh && !fromWh) push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 0, 1, hitDate);
+        if (fromWh && !toWh)
+          push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 1, 0, hitDate);
+        if (toWh && !fromWh)
+          push(SINGLE_WAREHOUSE_ID, "warehouse", SINGLE_WAREHOUSE_NAME, m, 0, 1, hitDate);
         if (supp && SUPPLIER_LOC.test(m.toLocation || ""))
           push(`s:${supp.id}`, "supplier", supp.name, m, 1, 0, hitDate);
         if (supp && SUPPLIER_LOC.test(m.fromLocation || ""))

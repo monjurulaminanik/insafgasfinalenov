@@ -49,6 +49,7 @@ export function ProductList() {
         rows={data}
         searchKeys={["name", "code"]}
         dateKey="createdAt"
+        defaultDatePreset="all"
         onRowClick={(r) => navigate({ to: "/products/$id", params: { id: r.id } })}
         columns={[
           {

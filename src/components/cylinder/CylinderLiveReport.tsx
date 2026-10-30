@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { cylinderService } from "@/services/cylinder.service";
 import { productService } from "@/services/product.service";
@@ -7,6 +8,8 @@ import { DataTable } from "@/components/common/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/utils/formatters";
 import type { Cylinder, CylinderStatus } from "@/types";
+import { DateRangeFilter } from "@/components/common/DateRangeFilter";
+import { createTodayDateRange, filterByDateRange } from "@/lib/date-range";
 import { useT } from "@/i18n";
 
 const statusVariant: Record<CylinderStatus, "default" | "secondary" | "destructive" | "outline"> = {
@@ -28,6 +31,18 @@ export function CylinderLiveReport() {
     queryKey: ["products"],
     queryFn: productService.list,
   });
+  const [range, setRange] = useState(createTodayDateRange);
+  const { data: movements = [] } = useQuery({
+    queryKey: ["cylinderMovements"],
+    queryFn: cylinderService.listMovements,
+  });
+  const activityCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const movement of filterByDateRange(movements, range, (m) => m.timestamp)) {
+      counts.set(movement.cylinderId, (counts.get(movement.cylinderId) ?? 0) + 1);
+    }
+    return counts;
+  }, [movements, range]);
   const gasCategoryOf = (c: Cylinder) =>
     c.gasCategory || products.find((p) => p.id === c.productId)?.category || "—";
 
@@ -40,11 +55,21 @@ export function CylinderLiveReport() {
         backLabel={t("cylinders.title")}
       />
       <PrintDocHeader title={t("cylinders.report")} />
+      <p className="my-3 text-xs text-muted-foreground">{t("reports.balanceScope")}</p>
+      <div className="no-print mb-3">
+        <DateRangeFilter value={range} onChange={setRange} />
+      </div>
       <DataTable<Cylinder>
         rows={data}
         searchKeys={["serialNumber", "location"]}
-        dateKey="lastMovementAt"
         columns={[
+          {
+            key: "activity",
+            header: t("reports.periodActivity"),
+            render: (r) => activityCounts.get(r.id) ?? 0,
+            sortable: true,
+            sortValue: (r) => activityCounts.get(r.id) ?? 0,
+          },
           {
             key: "sn",
             header: t("cylinders.serial"),

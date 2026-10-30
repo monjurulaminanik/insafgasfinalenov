@@ -51,6 +51,7 @@ export function CustomerList() {
         rows={data}
         searchKeys={["name", "phone", "whatsapp"]}
         dateKey="createdAt"
+        defaultDatePreset="all"
         onRowClick={(r) => navigate({ to: "/customers/$id", params: { id: r.id } })}
         columns={[
           {

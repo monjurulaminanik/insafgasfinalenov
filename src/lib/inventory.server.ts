@@ -221,12 +221,12 @@ export async function reconcileDatabaseInventory(db: any, session?: any): Promis
     const initMove = pMoves.find(
       (m) =>
         m.refType === "adjustment" &&
-        (m.refId?.startsWith("INIT-") || /initial/i.test(m.notes || "")),
+        (m.refId?.startsWith("INIT-") || (!m.refId?.startsWith("stock-adj-") && /initial/i.test(m.notes || ""))),
     );
     const openingStock =
       initMove?.quantity ??
-      KNOWN_OPENING_STOCKS[p.id] ??
-      (p.openingStock != null ? Number(p.openingStock) : 0);
+      (p.openingStock != null ? Number(p.openingStock) : undefined) ??
+      KNOWN_OPENING_STOCKS[p.id] ?? 0;
 
     // Calculate Stock In: valid receipts + valid returns + valid adjustment-in (excluding initial opening)
     let stockIn = 0;

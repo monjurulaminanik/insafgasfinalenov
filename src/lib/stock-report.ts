@@ -31,7 +31,10 @@ export function isMovementIn(m: StockMovement): boolean {
   if (m.direction === "in") return true;
   if (m.direction === "out") return false;
   // Supplier return means company stock is returned to supplier (outbound from company)
-  if (m.refType === "purchase" && (m.type === "return" || m.movementType === "RETURN" || m.movementType === "PURCHASE_RETURN")) {
+  if (
+    m.refType === "purchase" &&
+    (m.type === "return" || m.movementType === "RETURN" || m.movementType === "PURCHASE_RETURN")
+  ) {
     return false;
   }
   if (m.movementType) {
@@ -58,7 +61,10 @@ export function isMovementOut(m: StockMovement): boolean {
   if (m.direction === "out") return true;
   if (m.direction === "in") return false;
   // Supplier return means company stock is returned to supplier (outbound from company)
-  if (m.refType === "purchase" && (m.type === "return" || m.movementType === "RETURN" || m.movementType === "PURCHASE_RETURN")) {
+  if (
+    m.refType === "purchase" &&
+    (m.type === "return" || m.movementType === "RETURN" || m.movementType === "PURCHASE_RETURN")
+  ) {
     return true;
   }
   if (m.movementType) {
@@ -104,7 +110,8 @@ export function buildStockReport(
 ): ProductStockReport[] {
   const fromTs =
     range.preset !== "all" && range.from ? parseRecordTime(`${range.from}T00:00:00`) : null;
-  const toTs = range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59`) : null;
+  const toTs =
+    range.preset !== "all" && range.to ? parseRecordTime(`${range.to}T23:59:59.999`) : null;
 
   const byProduct = new Map<string, StockMovement[]>();
   for (const m of movements) {
@@ -125,7 +132,7 @@ export function buildStockReport(
       const initMovement = all.find(
         (m) =>
           m.refType === "adjustment" &&
-          (m.refId?.startsWith("INIT-") || /initial/i.test(m.notes || "")),
+          (m.refId?.startsWith("INIT-") || (!m.refId?.startsWith("stock-adj-") && /initial/i.test(m.notes || ""))),
       );
 
       const nonInitMovements = all.filter((m) => m !== initMovement);
@@ -136,7 +143,10 @@ export function buildStockReport(
         if (qty <= 0) continue;
         const isReverse = /Reverse/i.test(m.notes || "");
         if (isReverse) {
-          if ((m.refType === "sales" || m.refType === "delivery") && (m.type === "in" || m.type === "return")) {
+          if (
+            (m.refType === "sales" || m.refType === "delivery") &&
+            (m.type === "in" || m.type === "return")
+          ) {
             totalOut = Math.max(0, totalOut - qty);
             continue;
           }
@@ -174,7 +184,10 @@ export function buildStockReport(
 
         if (fromTs != null && t < fromTs) {
           if (isReverse) {
-            if ((m.refType === "sales" || m.refType === "delivery") && (m.type === "in" || m.type === "return")) {
+            if (
+              (m.refType === "sales" || m.refType === "delivery") &&
+              (m.type === "in" || m.type === "return")
+            ) {
               openingQty += qty;
             } else if (m.refType === "purchase" && m.type === "out") {
               openingQty = Math.max(0, openingQty - qty);
@@ -218,7 +231,10 @@ export function buildStockReport(
         let qOut = 0;
 
         if (isReverse) {
-          if ((m.refType === "sales" || m.refType === "delivery") && (m.type === "in" || m.type === "return")) {
+          if (
+            (m.refType === "sales" || m.refType === "delivery") &&
+            (m.type === "in" || m.type === "return")
+          ) {
             periodOut = Math.max(0, periodOut - qty);
             run = run + qty;
             qIn = qty;
