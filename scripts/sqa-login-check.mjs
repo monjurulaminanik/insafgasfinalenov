@@ -1,0 +1,20 @@
+import { chromium } from "playwright";
+const BASE = process.env.SQA_BASE_URL || "http://localhost:8081";
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage();
+const errors = [];
+page.on("pageerror", (e) => errors.push(e.message));
+page.on("console", (m) => {
+  if (m.type() === "error") errors.push(m.text());
+});
+await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded", timeout: 60000 });
+console.log("url", page.url());
+console.log("title", await page.title());
+console.log("user", await page.locator("#username").count());
+await page.locator("#username").fill("operator");
+await page.locator("#password").fill("insaf123");
+await page.getByRole("button", { name: /Sign in|সাইন ইন/i }).click();
+await page.waitForTimeout(5000);
+console.log("after", page.url());
+console.log("errors", errors.slice(0, 5));
+await browser.close();

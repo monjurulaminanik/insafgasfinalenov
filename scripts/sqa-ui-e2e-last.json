@@ -1,0 +1,206 @@
+{
+  "tag": "SQAUImu9tvtpn",
+  "rows": [
+    {
+      "test": "Login EN",
+      "result": "PASS",
+      "evidence": "http://localhost:8080/"
+    },
+    {
+      "test": "Create gas product stock 10",
+      "result": "PASS",
+      "evidence": "id=18hsssa8 stock=10"
+    },
+    {
+      "test": "Create PO qty 5",
+      "result": "PASS",
+      "evidence": "http://localhost:8080/purchases/m2xm3tfs"
+    },
+    {
+      "test": "GRN 2 ordered/received/remaining",
+      "result": "PASS",
+      "evidence": "{\"ordered\":5,\"received\":2,\"remaining\":3,\"raw\":\"ইনসাফ গ্যাস কর্প\\nইআরপি\\nওভারভিউ\\nড্যাশবোর্ড\\nরিপোর্টস\\nমাস্টার ডেটা\\nগ্রাহক\\nসরবরাহকারী\\nপণ্য\\nক্যাটাগরি\\nঅপারেশনস\\nসেলস অর্ডার\\nক্রয়\\nইনভেন্টরি\\nসিলিন্ডার\\nডেলিভারি\\nফিন্যান্স ও এইচআর\\nঅ্যাকাউন্টিং\\nখরচ\\nএইচআর ও পেরোল\\nএমপ্লয়ি / ডেলিভারিম্যান\\nসিস্টেম\\nসেটিংস\\nToggle Sidebar\\nইনসাফ গ্যাস কর্প\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\nEN\\n15\\nOperator\\nAdministrator\\nক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-1990\\n\\nLinde Bangladesh Ltd · 20 S\"}"
+    },
+    {
+      "test": "Stock after GRN 2",
+      "result": "PASS",
+      "evidence": "stock=12 expected 12"
+    },
+    {
+      "test": "GRN +2 received 4 remaining 1",
+      "result": "PASS",
+      "evidence": "{\"ordered\":5,\"received\":4,\"remaining\":1,\"raw\":\"ইনসাফ গ্যাস কর্প\\nইআরপি\\nওভারভিউ\\nড্যাশবোর্ড\\nরিপোর্টস\\nমাস্টার ডেটা\\nগ্রাহক\\nসরবরাহকারী\\nপণ্য\\nক্যাটাগরি\\nঅপারেশনস\\nসেলস অর্ডার\\nক্রয়\\nইনভেন্টরি\\nসিলিন্ডার\\nডেলিভারি\\nফিন্যান্স ও এইচআর\\nঅ্যাকাউন্টিং\\nখরচ\\nএইচআর ও পেরোল\\nএমপ্লয়ি / ডেলিভারিম্যান\\nসিস্টেম\\nসেটিংস\\nToggle Sidebar\\nইনসাফ গ্যাস কর্প\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\nEN\\n16\\nOperator\\nAdministrator\\nক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-1990\\n\\nLinde Bangladesh Ltd · 20 S\"}"
+    },
+    {
+      "test": "GRN +1 received 5 remaining 0",
+      "result": "PASS",
+      "evidence": "{\"ordered\":5,\"received\":5,\"remaining\":0,\"raw\":\"ইনসাফ গ্যাস কর্প\\nইআরপি\\nওভারভিউ\\nড্যাশবোর্ড\\nরিপোর্টস\\nমাস্টার ডেটা\\nগ্রাহক\\nসরবরাহকারী\\nপণ্য\\nক্যাটাগরি\\nঅপারেশনস\\nসেলস অর্ডার\\nক্রয়\\nইনভেন্টরি\\nসিলিন্ডার\\nডেলিভারি\\nফিন্যান্স ও এইচআর\\nঅ্যাকাউন্টিং\\nখরচ\\nএইচআর ও পেরোল\\nএমপ্লয়ি / ডেলিভারিম্যান\\nসিস্টেম\\nসেটিংস\\nToggle Sidebar\\nইনসাফ গ্যাস কর্প\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\nEN\\n16\\nOperator\\nAdministrator\\nক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-1990\\n\\nLinde Bangladesh Ltd · 20 S\"}"
+    },
+    {
+      "test": "Inventory +5 after full GRN",
+      "result": "PASS",
+      "evidence": "stock=15 opening 10"
+    },
+    {
+      "test": "Duplicate GRN after complete",
+      "result": "PASS",
+      "evidence": "buttonEnabled=false remaining=0"
+    },
+    {
+      "test": "Serial GRN#1 suffixes",
+      "result": "PASS",
+      "evidence": "SQAUIMU9TVTPN-C-20260920-001,SQAUIMU9TVTPN-C-20260920-002"
+    },
+    {
+      "test": "Serial GRN#2 next unused",
+      "result": "PASS",
+      "evidence": "SQAUIMU9TVTPN-C-20260920-003,SQAUIMU9TVTPN-C-20260920-004"
+    },
+    {
+      "test": "Serial GRN#3 next unused",
+      "result": "PASS",
+      "evidence": "SQAUIMU9TVTPN-C-20260920-005"
+    },
+    {
+      "test": "Five unique suggested serials",
+      "result": "PASS",
+      "evidence": "SQAUIMU9TVTPN-C-20260920-001,SQAUIMU9TVTPN-C-20260920-002,SQAUIMU9TVTPN-C-20260920-003,SQAUIMU9TVTPN-C-20260920-004,SQAUIMU9TVTPN-C-20260920-005"
+    },
+    {
+      "test": "Cylinder serial GRN 2+2+1",
+      "result": "PASS",
+      "evidence": "{\"ordered\":5,\"received\":5,\"remaining\":0,\"raw\":\"ইনসাফ গ্যাস কর্প\\nইআরপি\\nওভারভিউ\\nড্যাশবোর্ড\\nরিপোর্টস\\nমাস্টার ডেটা\\nগ্রাহক\\nসরবরাহকারী\\nপণ্য\\nক্যাটাগরি\\nঅপারেশনস\\nসেলস অর্ডার\\nক্রয়\\nইনভেন্টরি\\nসিলিন্ডার\\nডেলিভারি\\nফিন্যান্স ও এইচআর\\nঅ্যাকাউন্টিং\\nখরচ\\nএইচআর ও পেরোল\\nএমপ্লয়ি / ডেলিভারিম্যান\\nসিস্টেম\\nসেটিংস\\nToggle Sidebar\\nইনসাফ গ্যাস কর্প\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\nEN\\n16\\nOperator\\nAdministrator\\nক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-6962\\n\\nLinde Bangladesh Ltd · 20 S\"}"
+    },
+    {
+      "test": "Cylinder page shows SQA serials",
+      "result": "PASS",
+      "evidence": "registry filtered"
+    },
+    {
+      "test": "Serial-less GRN PO received 2",
+      "result": "PASS",
+      "evidence": "{\"ordered\":2,\"received\":2,\"remaining\":0,\"raw\":\"ইনসাফ গ্যাস কর্প\\nইআরপি\\nওভারভিউ\\nড্যাশবোর্ড\\nরিপোর্টস\\nমাস্টার ডেটা\\nগ্রাহক\\nসরবরাহকারী\\nপণ্য\\nক্যাটাগরি\\nঅপারেশনস\\nসেলস অর্ডার\\nক্রয়\\nইনভেন্টরি\\nসিলিন্ডার\\nডেলিভারি\\nফিন্যান্স ও এইচআর\\nঅ্যাকাউন্টিং\\nখরচ\\nএইচআর ও পেরোল\\nএমপ্লয়ি / ডেলিভারিম্যান\\nসিস্টেম\\nসেটিংস\\nToggle Sidebar\\nইনসাফ গ্যাস কর্প\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\nEN\\n16\\nOperator\\nAdministrator\\nক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-5589\\n\\nLinde Bangladesh Ltd · 20 S\"}"
+    },
+    {
+      "test": "Serial-less product.stock +2",
+      "result": "PASS",
+      "evidence": "before=0 after=2"
+    },
+    {
+      "test": "Serial-less no fake cylinder rows",
+      "result": "PASS",
+      "evidence": "loose name on cylinder registry"
+    },
+    {
+      "test": "SO line Product/Category/Type/Qty",
+      "result": "PASS",
+      "evidence": "gas line filled qty 3"
+    },
+    {
+      "test": "SO Complete",
+      "result": "PASS",
+      "evidence": "http://localhost:8080/sales/st2kpie8"
+    },
+    {
+      "test": "SO Complete no Inventory OUT",
+      "result": "PASS",
+      "evidence": "before=15 after=15"
+    },
+    {
+      "test": "Pending delivery exists",
+      "result": "PASS",
+      "evidence": "so=st2kpie8"
+    },
+    {
+      "test": "Delivery OUT once",
+      "result": "PASS",
+      "evidence": "stock=12 expected 12"
+    },
+    {
+      "test": "Duplicate delivery confirm",
+      "result": "PASS",
+      "evidence": "confirmEnabled=false"
+    },
+    {
+      "test": "Unfulfill reverses OUT",
+      "result": "PASS",
+      "evidence": "stock=15 expected 15"
+    },
+    {
+      "test": "Re-fulfill one new OUT",
+      "result": "PASS",
+      "evidence": "stock=12"
+    },
+    {
+      "test": "Stock adjustment +10",
+      "result": "PASS",
+      "evidence": "stock=22"
+    },
+    {
+      "test": "Stock adjustment -10",
+      "result": "PASS",
+      "evidence": "stock=12"
+    },
+    {
+      "test": "Inventory reconciliation",
+      "result": "PASS",
+      "evidence": "opening 10 +5 GRN -3 del = 12 actual 12"
+    },
+    {
+      "test": "SO types Gas/Cylinder/Product",
+      "result": "PASS",
+      "evidence": "গ্যাস,সিলিন্ডার,পণ্য"
+    },
+    {
+      "test": "SO category dropdown",
+      "result": "PASS",
+      "evidence": "—,Industrial,LPG,Medical,Other,SQA-mu9quocs,SQACATmu9t2f7s"
+    },
+    {
+      "test": "Class extends undefined",
+      "result": "PASS",
+      "evidence": "not observed"
+    },
+    {
+      "test": "pageerror",
+      "result": "PASS",
+      "evidence": "none"
+    },
+    {
+      "test": "Browser console (filtered)",
+      "result": "PASS",
+      "evidence": "none"
+    },
+    {
+      "test": "Network 4xx/5xx",
+      "result": "PASS",
+      "evidence": "none"
+    },
+    {
+      "test": "P3 Radix defaultOpen",
+      "result": "PASS",
+      "evidence": "warning only; left unchanged to avoid controlled/uncontrolled UX risk"
+    },
+    {
+      "test": "Production",
+      "result": "NOT TESTED",
+      "evidence": "stale Vercel; do not deploy until this report is READY"
+    },
+    {
+      "test": "Cleanup SQA records",
+      "result": "PASS",
+      "evidence": "{\"pids\":[\"18hsssa8\",\"sdfgxp7g\",\"08bdvje7\"],\"names\":[\"SQAUImu9tvtpn-gas\",\"SQAUImu9tvtpn-cyl\",\"SQAUImu9tvtpn-loose\"],\"po\":3,\"so\":2,\"del\":2}"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "httpFails": [],
+  "created": {
+    "products": ["18hsssa8", "sdfgxp7g", "08bdvje7"],
+    "purchases": ["m2xm3tfs", "ghutjpr4", "bz3vnrp5"],
+    "sales": ["st2kpie8", "9s9lcha4"],
+    "deliveries": ["sneahy48"],
+    "cylinders": [],
+    "category": ""
+  }
+}

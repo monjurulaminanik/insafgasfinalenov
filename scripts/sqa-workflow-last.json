@@ -1,0 +1,289 @@
+{
+  "tag": "SQAWFmufam2rx",
+  "rows": [
+    {
+      "test": "Login",
+      "result": "PASS",
+      "evidence": "http://localhost:8082/"
+    },
+    {
+      "test": "UI sidebar/dashboard intact",
+      "result": "PASS",
+      "evidence": "no redesign check"
+    },
+    {
+      "test": "Product create",
+      "result": "PASS",
+      "evidence": "ohmigpwv"
+    },
+    {
+      "test": "Product list shows create",
+      "result": "PASS",
+      "evidence": "SQAWFmufam2rx-gas"
+    },
+    {
+      "test": "Product persist after refresh",
+      "result": "PASS",
+      "evidence": "list refresh"
+    },
+    {
+      "test": "Create stock 0",
+      "result": "PASS",
+      "evidence": "stock=0"
+    },
+    {
+      "test": "Edit loads existing name",
+      "result": "PASS",
+      "evidence": "SQAWFmufam2rx-gas"
+    },
+    {
+      "test": "Product edit save",
+      "result": "PASS",
+      "evidence": "http://localhost:8082/products/ohmigpwv সংরক্ষণ"
+    },
+    {
+      "test": "Edit persisted after refresh",
+      "result": "PASS",
+      "evidence": "পণ্য\nSQAWFmufam2rx-gas-ed\n\nMedical · SQAWFmufam2rx-GX\n\nসম্পাদনা\nমুছুন\n\nবিক্রয় মূল্য\n\n৳120\n\nকস্ট প্রাইস\n\n৳55\n\nপণ্যের ধরন\n\nগ্যাস\n\nএকক\n\nkg\n\nস্টক\n\n0\n\nরিঅর্ডার\n\n0\n\n"
+    },
+    {
+      "test": "Edit did not change stock",
+      "result": "PASS",
+      "evidence": "before=0 after=0"
+    },
+    {
+      "test": "Edit did not create duplicate product",
+      "result": "PASS",
+      "evidence": "tag hits=2"
+    },
+    {
+      "test": "Discount field",
+      "result": "NOT TESTED",
+      "evidence": "no discount field in ProductForm"
+    },
+    {
+      "test": "Reopen edit shows saved name",
+      "result": "PASS",
+      "evidence": "SQAWFmufam2rx-gas-ed"
+    },
+    {
+      "test": "PO create unpaid",
+      "result": "PASS",
+      "evidence": "payment"
+    },
+    {
+      "test": "PO create not received",
+      "result": "PASS",
+      "evidence": "receiving"
+    },
+    {
+      "test": "PO create no inventory IN",
+      "result": "PASS",
+      "evidence": "stock=0"
+    },
+    {
+      "test": "Full pay → পরিশোধিত",
+      "result": "PASS",
+      "evidence": "পেমেন্ট স্ট্যাটাস\nপরিশোধিত\nগ্রহণ স্ট্যাটাস\nগৃহীত হয় নাই\nঅনুমোদিত স্বাক্ষর\nগ্রহণকারী\n\nক"
+    },
+    {
+      "test": "Full pay still not received",
+      "result": "PASS",
+      "evidence": "receiving independent"
+    },
+    {
+      "test": "Payment does not increase inventory",
+      "result": "PASS",
+      "evidence": "stock=0"
+    },
+    {
+      "test": "Receive 4 (incl duplicate click)",
+      "result": "PASS",
+      "evidence": "{\"received\":4,\"remaining\":6,\"text\":\"ক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-4262\\n\\nLinde Bangladesh Ltd · 24 Sept 2026\\n\\nসম্পাদনা\\nহিসাব\\nপ্রিন্ট\\nআংশিক গৃহীত\\n\\nইনসাফ গ্যাস কর্প\\n\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\n\\nক্রয় অর্ডার\\n\\nPO-2026-4262 · GRN GRN-2026-6095 · 24 Sept 2026\\n\\nক্রয় অর্ডার\\n\\nPO-2026-4262\\n\\nআংশিক গৃহীত\\n\\nসরবরাহকারী\\n\\nLinde Bangladesh Ltd\\n\\n+880 2 9887111\\n\\nপিও #\\n\\nPO-2026-4262\\n\\nতারিখ\\n\\n24 Sept 2026\\n\\nপরিশোধিত\\n\\n৳550\\n\\nবাকি\\n\\n৳0\\n#\\tআইটেম\\tকোড\\tসিরিয়াল #\\tপরিমাণ\\tখরচ\\tমোট\\n1\\tSQAWFmufam2rx-gas-ed\\tSQAWFmufam2rx-GX\\t—\\t\\n10\\nগৃহীত 4 · অবশিষ্ট 6\\n\\t৳55\\t৳550\\nমো\"}"
+    },
+    {
+      "test": "Receiving আংশিক গৃহীত",
+      "result": "PASS",
+      "evidence": "recv status"
+    },
+    {
+      "test": "Inventory +4 only after first receive",
+      "result": "PASS",
+      "evidence": "stock=4"
+    },
+    {
+      "test": "Receive remaining 6",
+      "result": "PASS",
+      "evidence": "{\"received\":10,\"remaining\":0,\"text\":\"ক্রয় অর্ডার\\nক্রয় অর্ডার PO-2026-4262\\n\\nLinde Bangladesh Ltd · 24 Sept 2026\\n\\nসম্পাদনা\\nহিসাব\\nপ্রিন্ট\\nগৃহীত\\n\\nইনসাফ গ্যাস কর্প\\n\\nএন্টারপ্রাইজ রিসোর্স প্ল্যানিং\\n\\nক্রয় অর্ডার\\n\\nPO-2026-4262 · GRN GRN-2026-3903 · 24 Sept 2026\\n\\nক্রয় অর্ডার\\n\\nPO-2026-4262\\n\\nগৃহীত\\n\\nসরবরাহকারী\\n\\nLinde Bangladesh Ltd\\n\\n+880 2 9887111\\n\\nপিও #\\n\\nPO-2026-4262\\n\\nতারিখ\\n\\n24 Sept 2026\\n\\nপরিশোধিত\\n\\n৳550\\n\\nবাকি\\n\\n৳0\\n#\\tআইটেম\\tকোড\\tসিরিয়াল #\\tপরিমাণ\\tখরচ\\tমোট\\n1\\tSQAWFmufam2rx-gas-ed\\tSQAWFmufam2rx-GX\\t—\\t\\n10\\nগৃহীত 10 · অবশিষ্ট 0\\n\\t৳55\\t৳550\\nমোট\\n৳550\\nপরিশ\"}"
+    },
+    {
+      "test": "Receiving গৃহীত",
+      "result": "PASS",
+      "evidence": "full received"
+    },
+    {
+      "test": "Inventory total +10 not +14",
+      "result": "PASS",
+      "evidence": "stock=10"
+    },
+    {
+      "test": "Fully received GRN disabled",
+      "result": "PASS",
+      "evidence": "no more receive"
+    },
+    {
+      "test": "Pay more than due blocked or no-op",
+      "result": "PASS",
+      "evidence": "due 0"
+    },
+    {
+      "test": "Partial-pay PO unpaid",
+      "result": "PASS",
+      "evidence": "start"
+    },
+    {
+      "test": "Partial payment status",
+      "result": "PASS",
+      "evidence": "40"
+    },
+    {
+      "test": "Then fully paid",
+      "result": "PASS",
+      "evidence": "remainder"
+    },
+    {
+      "test": "Partial/full payment no inventory",
+      "result": "PASS",
+      "evidence": "10→10"
+    },
+    {
+      "test": "SO complete",
+      "result": "PASS",
+      "evidence": "gv94jmgp"
+    },
+    {
+      "test": "SO Complete no Inventory OUT",
+      "result": "PASS",
+      "evidence": "10→10"
+    },
+    {
+      "test": "Delivery confirm UI",
+      "result": "PASS",
+      "evidence": "2n6ox23w"
+    },
+    {
+      "test": "Delivery OUT once",
+      "result": "PASS",
+      "evidence": "stock=7 expected 7"
+    },
+    {
+      "test": "Delivery status persist refresh",
+      "result": "PASS",
+      "evidence": "ডেলিভারি চালান\nচালান # DC-2026-9611\n\nগ্রাহক: SQAWFmufam2rx-cust\n\nপ্রিন্ট\nডেলিভারড\n\nইনসাফ গ্যাস কর্প\n\nএন্টারপ্রাইজ রিসোর্"
+    },
+    {
+      "test": "Duplicate delivery confirm blocked",
+      "result": "PASS",
+      "evidence": "button"
+    },
+    {
+      "test": "No second Inventory OUT",
+      "result": "PASS",
+      "evidence": "7→7"
+    },
+    {
+      "test": "Sale receivable unpaid",
+      "result": "PASS",
+      "evidence": "SO due"
+    },
+    {
+      "test": "Customer partial payment",
+      "result": "PASS",
+      "evidence": "150"
+    },
+    {
+      "test": "Customer full payment",
+      "result": "PASS",
+      "evidence": "remainder"
+    },
+    {
+      "test": "Cylinder GRN Generate Serials available",
+      "result": "PASS",
+      "evidence": "testid"
+    },
+    {
+      "test": "Serial format CODE-YYYYMMDD-NNN",
+      "result": "PASS",
+      "evidence": "SQAWFMUFAM2RX-C-20260924-001,SQAWFMUFAM2RX-C-20260924-002"
+    },
+    {
+      "test": "Serial-less cylinder GRN qty stock only",
+      "result": "PASS",
+      "evidence": "stock=2"
+    },
+    {
+      "test": "Serial-less no fake cylinders",
+      "result": "PASS",
+      "evidence": "registry"
+    },
+    {
+      "test": "Cylinder module pages",
+      "result": "PASS",
+      "evidence": "GRN+registry checked; full/empty/lost/exchange not newly rewritten"
+    },
+    {
+      "test": "Accounts page + PV/RV refs",
+      "result": "PASS",
+      "evidence": "অ্যাকাউন্টিং\n\nজার্নাল পোস্টিং, ক্যাশ বই, ব্যাংক বই, পেমেন্ট ও রিসিপ্ট ভাউচার।\n\nবন্ধ\nনতুন ভাউচার\nজার্"
+    },
+    {
+      "test": "P&L report loads existing costing",
+      "result": "PASS",
+      "evidence": "রিপোর্টস\n\nলাইভ ডেটা থেকে অপারেশনাল ও আর্থিক রিপোর্ট।\n\nপ্রিন্ট\nতারিখ পরিসীমা\nসব\nআজ\n৭ দিন\nএই মাস\nকাস্টম\nসেলস রিপোর্ট\nক্রয়"
+    },
+    {
+      "test": "Categories regression",
+      "result": "PASS",
+      "evidence": "/products/categories"
+    },
+    {
+      "test": "SO Gas/Cylinder/Product",
+      "result": "PASS",
+      "evidence": "গ্যাস সিলিন্ডার পণ্য"
+    },
+    {
+      "test": "Class extends undefined",
+      "result": "PASS",
+      "evidence": "not observed"
+    },
+    {
+      "test": "pageerror",
+      "result": "PASS",
+      "evidence": "none"
+    },
+    {
+      "test": "Browser console",
+      "result": "PASS",
+      "evidence": "none"
+    },
+    {
+      "test": "Network 4xx/5xx",
+      "result": "PASS",
+      "evidence": "none"
+    },
+    {
+      "test": "Cleanup SQA records",
+      "result": "PASS",
+      "evidence": "{\"pids\":2,\"po\":3,\"so\":1,\"del\":1}"
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "httpFails": [],
+  "created": {
+    "products": ["ohmigpwv", "ycxw9h8z"],
+    "purchases": ["g4rnrgsc", "r0psi1xk", "wktob1vb"],
+    "sales": ["gv94jmgp"],
+    "deliveries": ["2n6ox23w"]
+  }
+}

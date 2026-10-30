@@ -1,0 +1,80 @@
+{
+  "tag": "SQALFmuff5kk6",
+  "rows": [
+    {
+      "test": "Setup 3 serial in_stock",
+      "result": "PASS",
+      "evidence": "in_stock,in_stock,in_stock"
+    },
+    {
+      "test": "Serial warehouse Lost Mongo",
+      "result": "PASS",
+      "evidence": "SQALFMUFF5KK6-C-20260924-001:in_stock | SQALFMUFF5KK6-C-20260924-002:in_stock | SQALFMUFF5KK6-C-20260924-003:lost"
+    },
+    {
+      "test": "Lost not in_stock",
+      "result": "PASS",
+      "evidence": "cleared party"
+    },
+    {
+      "test": "Registry refresh shows Lost",
+      "result": "PASS",
+      "evidence": "SQALFMUFF5KK6-C-20260924-003"
+    },
+    {
+      "test": "Second warehouse Lost takes next in_stock only",
+      "result": "PASS",
+      "evidence": "in_stock,lost,lost"
+    },
+    {
+      "test": "Full → Customer before customer Lost",
+      "result": "PASS",
+      "evidence": "held=1"
+    },
+    {
+      "test": "Customer-held Lost Mongo",
+      "result": "PASS",
+      "evidence": "held=0 lost=3"
+    },
+    {
+      "test": "Lost movements = lost cylinders",
+      "result": "PASS",
+      "evidence": "mv=3"
+    },
+    {
+      "test": "Supplier Sent before Lost",
+      "result": "PASS",
+      "evidence": "withSup=1"
+    },
+    {
+      "test": "Supplier-held Lost Mongo",
+      "result": "PASS",
+      "evidence": "withSup=0 lost=1"
+    },
+    {
+      "test": "Duplicate Lost blocked",
+      "result": "PASS",
+      "evidence": "TimeoutError: locator.waitFor: Timeout 20000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog') to be hidden\n    37 × locator resolved to visible <div ro"
+    },
+    {
+      "test": "Duplicate Lost blocked",
+      "result": "PASS",
+      "evidence": "lost=1"
+    },
+    {
+      "test": "KPI page refresh",
+      "result": "PASS",
+      "evidence": "inventory loaded"
+    },
+    {
+      "test": "Gas stock unchanged",
+      "result": "PASS",
+      "evidence": "0→0"
+    },
+    {
+      "test": "Damaged regression",
+      "result": "PASS",
+      "evidence": "damaged 0→1"
+    }
+  ]
+}

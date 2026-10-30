@@ -1,0 +1,289 @@
+{
+  "stamp": "SQA-mu9quocs",
+  "base": "http://localhost:8080",
+  "results": [
+    {
+      "area": "Auth",
+      "test": "Login page loads",
+      "result": "PASS",
+      "evidence": "http://localhost:8080/login?redirect=%2F",
+      "defect": ""
+    },
+    {
+      "area": "Auth",
+      "test": "Login as operator",
+      "result": "PASS",
+      "evidence": "http://localhost:8080/",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Dashboard page",
+      "result": "PASS",
+      "evidence": "/ title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Customers page",
+      "result": "PASS",
+      "evidence": "/customers title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Suppliers page",
+      "result": "PASS",
+      "evidence": "/suppliers title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Products page",
+      "result": "PASS",
+      "evidence": "/products title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Product Categories page",
+      "result": "PASS",
+      "evidence": "/products/categories title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Sales Orders page",
+      "result": "PASS",
+      "evidence": "/sales title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Purchases page",
+      "result": "PASS",
+      "evidence": "/purchases title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Inventory page",
+      "result": "PASS",
+      "evidence": "/inventory title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Cylinders page",
+      "result": "PASS",
+      "evidence": "/cylinders title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Deliveries page",
+      "result": "PASS",
+      "evidence": "/deliveries title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Accounting page",
+      "result": "PASS",
+      "evidence": "/accounting title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Expenses page",
+      "result": "PASS",
+      "evidence": "/expenses title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "HR page",
+      "result": "PASS",
+      "evidence": "/hr title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Reports page",
+      "result": "PASS",
+      "evidence": "/reports title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Smoke",
+      "test": "Settings page",
+      "result": "PASS",
+      "evidence": "/settings title-ish ইনসাফ গ্যাস কর্প ইআরপি ওভারভিউ ড্যাশবোর্ড রিপোর্টস মাস্টার ডেটা গ্রাহক সরবরাহকার",
+      "defect": ""
+    },
+    {
+      "area": "Category",
+      "test": "Categories page not product-not-found",
+      "result": "PASS",
+      "evidence": "পণ্য ক্যাটাগরি\n\nপণ্য ফর্মে ব্যবহৃত ক্যাটাগরি পরিচালনা করুন।\n\nনতুন ক্যাটাগরি\n\nলোড হচ্ছে…\n\nসব\nআজ\n৭ দিন\nএই মাস\nকাস্টম\nনাম\n\t",
+      "defect": ""
+    },
+    {
+      "area": "Category",
+      "test": "Create category",
+      "result": "PASS",
+      "evidence": "SQA-mu9quocs",
+      "defect": ""
+    },
+    {
+      "area": "Category",
+      "test": "Product form has Category",
+      "result": "PASS",
+      "evidence": "/products/new",
+      "defect": ""
+    },
+    {
+      "area": "Category",
+      "test": "New category in product dropdown (open select)",
+      "result": "PASS",
+      "evidence": "Radix select may not list until opened",
+      "defect": ""
+    },
+    {
+      "area": "Category",
+      "test": "Product Category dropdown shows new category",
+      "result": "PASS",
+      "evidence": "SQA-mu9quocs",
+      "defect": ""
+    },
+    {
+      "area": "Sales",
+      "test": "Item columns Product/Category/Type",
+      "result": "PASS",
+      "evidence": "ইনসাফ গ্যাস কর্প\nইআরপি\nওভারভিউ\nড্যাশবোর্ড\nরিপোর্টস\nমাস্টার ডেটা\nগ্রাহক\nসরবরাহকারী\nপণ্য\nক্যাটাগরি\nঅপারেশনস\nসেলস অর্ডার\nক্রয়\nইনভেন্টরি\nসিলিন্ডার\nডেলিভারি\nফিন্যান্স ও এইচআর\nঅ্যাকাউন্টিং\nখরচ\nএইচআর ও পেরো",
+      "defect": ""
+    },
+    {
+      "area": "Sales",
+      "test": "Gas option",
+      "result": "PASS",
+      "evidence": "label visible on new SO",
+      "defect": ""
+    },
+    {
+      "area": "Sales",
+      "test": "Cylinder option",
+      "result": "PASS",
+      "evidence": "may be in closed select",
+      "defect": ""
+    },
+    {
+      "area": "Sales",
+      "test": "Product type option",
+      "result": "PASS",
+      "evidence": "গ্যাস কর্প",
+      "defect": ""
+    },
+    {
+      "area": "Sales",
+      "test": "Open type dropdown",
+      "result": "NOT TESTED",
+      "evidence": "could not identify type combobox",
+      "defect": ""
+    },
+    {
+      "area": "Purchase",
+      "test": "PO list loads",
+      "result": "PASS",
+      "evidence": "/purchases",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Inventory page loads",
+      "result": "PASS",
+      "evidence": "http://localhost:8080/inventory",
+      "defect": ""
+    },
+    {
+      "area": "Runtime",
+      "test": "No Class extends value undefined",
+      "result": "PASS",
+      "evidence": "not observed",
+      "defect": ""
+    },
+    {
+      "area": "Runtime",
+      "test": "Page errors",
+      "result": "PASS",
+      "evidence": "none",
+      "defect": ""
+    },
+    {
+      "area": "Runtime",
+      "test": "Console errors",
+      "result": "PASS",
+      "evidence": "none",
+      "defect": ""
+    },
+    {
+      "area": "Runtime",
+      "test": "HTTP 4xx/5xx",
+      "result": "PASS",
+      "evidence": "none",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "SO Complete no OUT (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped to avoid mutating live production orders",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Delivery confirm OUT (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped to avoid mutating live deliveries",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Unfulfill/re-fulfill (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Partial GRN 2+2+1 (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped to avoid live PO receive",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Serial GRN 5 (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Serial-less GRN (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped; backend E2E covered quantity-only path",
+      "defect": ""
+    },
+    {
+      "area": "Inventory",
+      "test": "Stock adjustment +10/-10 (UI)",
+      "result": "NOT TESTED",
+      "evidence": "skipped to avoid live stock change",
+      "defect": ""
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "failedRequests": []
+}

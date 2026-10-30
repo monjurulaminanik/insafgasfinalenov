@@ -1,0 +1,30 @@
+{
+  "tag": "SQAFRmufdo7if",
+  "rows": [
+    {
+      "test": "Discount field on Product Form",
+      "result": "NOT APPLICABLE",
+      "evidence": "not in Product model/form"
+    },
+    {
+      "test": "Serial GRN created 6 cylinders",
+      "result": "PASS",
+      "evidence": "{\"n\":6,\"in_stock\":6,\"at_customer\":0,\"with_supplier\":0,\"lost\":0,\"damaged\":0,\"empty\":0,\"full_stock\":6,\"available\":6}"
+    },
+    {
+      "test": "Quantity-only cylinder GRN",
+      "result": "PASS",
+      "evidence": "cyls=0 stock=2"
+    },
+    {
+      "test": "Runner",
+      "result": "FAIL",
+      "evidence": "locator.click: Timeout 30000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog').getByTestId('adjust-type')\n    - locator resolved to <button dir=\"ltr\" type=\"button\" role=\"combobox\" data-state=\"closed\" aria-expanded=\"false\" aria-autocomplete=\"none\" data-testid=\"adjust-type\" data-tsd-source=\"/src/components/inventory/InventoryPage.tsx:349:17\" class=\"flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background cursor-pointer data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allow…>…</button>\n  - attempting click action\n    - waiting for element to be visible, enabled and stable\n    - element is not stable\n  - retrying click action\n    - waiting for element to be visible, enabled and stable\n  - element was detached from the DOM, retrying\n\n    at adjust (D:\\Software Code\\Insaf Corporation\\insaf-fuel-keeper\\scripts\\sqa-final-regression.mjs:196:40)\n    at async file:///D:/Software%20Code/Insaf%20Corporation/insaf-fuel-keeper/scripts/sqa-final-regression.mjs:338:3"
+    },
+    {
+      "test": "Cleanup",
+      "result": "PASS",
+      "evidence": "{\"pids\":2,\"po\":2,\"so\":0,\"cyl\":6}"
+    }
+  ]
+}
