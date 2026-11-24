@@ -49,5 +49,5 @@ export function getMongoClient(): Promise<MongoClient> {
 
 export async function getDb(): Promise<Db> {
   const client = await getMongoClient();
-  return client.db(process.env.MONGODB_DB || "InsafCorporation");
+  return client.db(process.env.MONGODB_DB || "insaf_gas_corp");
 }
