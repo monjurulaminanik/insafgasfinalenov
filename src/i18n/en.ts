@@ -154,6 +154,8 @@ export const en = {
   "dash.netProfitLoss": "Net Profit / Loss",
   "dash.revenueOverview": "Revenue Overview",
   "dash.revenueSubtitle": "Sales vs Purchases vs Expenses vs Net Profit/Loss",
+  "dash.noTransactions": "No transaction data available.",
+  "dash.noTransactionsSubtitle": "Revenue and expense trends will appear here automatically once real transactions are recorded.",
   "dash.approvedInvoices": "Approved invoices",
   "dash.activePurchases": "Purchase orders",
   "dash.operatingExpenses": "Operating expenses",

@@ -43,20 +43,7 @@ function newId(prefix = "mov"): string {
   return `${prefix}-${Date.now().toString(36)}-${seq.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export const KNOWN_OPENING_STOCKS: Record<string, number> = {
-  p1: 25,
-  p2: 20,
-  p3: 28,
-  p4: 46,
-  p5: 6,
-  p6: 22,
-  "0n4pn2g1": 20,
-  "9jdnwagj": 78,
-  "59eaw73l": 0,
-  hpgmusaf: 0,
-  azdmoisv: 100,
-  "4cos6kjk": 33,
-};
+export const KNOWN_OPENING_STOCKS: Record<string, number> = {};
 
 /**
  * Calculates reserved quantity for cylinder products.

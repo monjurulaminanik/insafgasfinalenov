@@ -23,7 +23,7 @@ async function ensureUsers() {
     await coll.createIndex({ username: 1 }, { unique: true });
   } catch {}
   const count = await coll.estimatedDocumentCount();
-  if (count === 0 && isDemoLoginEnabled()) {
+  if (count === 0) {
     try {
       await coll.insertMany(
         seedAppUsers.map((u) => ({

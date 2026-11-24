@@ -156,6 +156,8 @@ export const bn = {
   "dash.netProfitLoss": "নেট লাভ / ক্ষতি",
   "dash.revenueOverview": "রাজস্ব পর্যালোচনা",
   "dash.revenueSubtitle": "বিক্রি বনাম ক্রয় বনাম খরচ বনাম নেট লাভ/ক্ষতি",
+  "dash.noTransactions": "কোনো লেনদেনের তথ্য পাওয়া যায়নি।",
+  "dash.noTransactionsSubtitle": "প্রকৃত লেনদেন রেকর্ড করার পর স্বয়ংক্রিয়ভাবে রাজস্ব এবং ব্যয়ের চার্ট প্রদর্শিত হবে।",
   "dash.approvedInvoices": "অনুমোদিত চালান",
   "dash.activePurchases": "ক্রয় অর্ডার",
   "dash.operatingExpenses": "পরিচালন ব্যয়",

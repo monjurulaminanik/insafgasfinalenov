@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { formatCurrency, formatCompactCurrency } from "@/utils/formatters";
 import { useT } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { TrendingUp } from "lucide-react";
 
 export type MonthlyDataPoint = {
   month: string;
@@ -35,6 +36,10 @@ export function RevenueOverviewChart({ data, isLoading }: RevenueOverviewChartPr
     { key: "expenses", label: "Expenses", color: "#f59e0b", gradId: "expensesGrad" },
     { key: "netProfit", label: "Net Profit/Loss", color: "#10b981", gradId: "profitGrad" },
   ] as const;
+
+  const hasTransactions = data.some(
+    (d) => d.sales > 0 || d.purchases > 0 || d.expenses > 0 || Math.abs(d.netProfit) > 0,
+  );
 
   return (
     <Card data-reveal data-testid="revenue-overview-chart" className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
@@ -63,6 +68,19 @@ export function RevenueOverviewChart({ data, isLoading }: RevenueOverviewChartPr
         {isLoading ? (
           <div className="flex h-72 items-center justify-center text-xs text-muted-foreground">
             {t("dash.loading") || "Loading chart data…"}
+          </div>
+        ) : !hasTransactions ? (
+          <div className="flex h-[280px] sm:h-[320px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 p-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted/60 text-muted-foreground">
+              <TrendingUp className="h-6 w-6 opacity-40" />
+            </div>
+            <p className="text-sm font-medium text-foreground">
+              {t("dash.noTransactions") || "No transaction data available"}
+            </p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              {t("dash.noTransactionsSubtitle") ||
+                "Revenue and expense trends will appear here automatically once real transactions are recorded."}
+            </p>
           </div>
         ) : (
           <div className="h-[280px] w-full sm:h-[320px]">
