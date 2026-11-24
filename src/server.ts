@@ -106,6 +106,32 @@ export default {
         });
       }
 
+      if (pathname === "/api/branding/diagnostic" && request.method === "GET") {
+        try {
+          const { getDb } = await import("./lib/mongo.server");
+          const db = await getDb();
+          const collections = await db.listCollections().toArray();
+          const counts: Record<string, number> = {};
+          for (const c of collections) {
+            counts[c.name] = await db.collection(c.name).countDocuments();
+          }
+          return new Response(JSON.stringify({
+            uri: process.env.MONGODB_URI,
+            dbEnv: process.env.MONGODB_DB,
+            activeDb: db.databaseName,
+            counts,
+          }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        } catch (e: any) {
+          return new Response(JSON.stringify({ error: e.message, stack: e.stack }), {
+            status: 500,
+            headers: { "content-type": "application/json" },
+          });
+        }
+      }
+
       // Public branding endpoints for Open Graph and Logo/Favicon requests
       if (
         (pathname === "/api/branding/og-image" ||
